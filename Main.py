@@ -1,4 +1,11 @@
-import win32gui, win32con, msvcrt, os, FontSize, json, pickle, random
+import win32gui
+import win32con
+import msvcrt
+import os
+import FontSize
+import json
+import pickle
+import random
 from time import sleep
 from os import system
 from rich.live import Live
@@ -9,7 +16,7 @@ from rich import box
 from math import floor,ceil
 from copy import deepcopy as copy
 
-GameVersion = "0.1"
+GAME_VERSION = "0.1"
 SaveFilePath = os.getenv('APPDATA')+"\RPG_PYTHON"
 if not os.path.exists(SaveFilePath):
     os.mkdir(SaveFilePath)
@@ -47,6 +54,7 @@ class GameState:
     STARTING = 0
     LOADED = 1
     State = STARTING
+
 
 class Key:
     KEY_tab = 9
@@ -143,10 +151,10 @@ class ascii:
 
 class CharacterClass:
     CharacterList = []
-    def __init__(self,Name:str,MaxHealth:int,MaxStamina:int,MaxMana:int,Attack:int,Armor:int,ArmorPen:float,CritRate:float,CritDamage:float):
+    def __init__(self,name:str,MaxHealth:int,MaxStamina:int,MaxMana:int,Attack:int,Armor:int,ArmorPen:float,CritRate:float,CritDamage:float):
         CharacterClass.CharacterList.append(self)
-        self.Statistics = {
-            'Name' : Name,
+        self.stats = {
+            'name' : name,
             'MaxHealth' : MaxHealth,
             'MaxStamina': MaxStamina,
             'MaxMana': MaxMana,
@@ -156,12 +164,13 @@ class CharacterClass:
             'CritRate' : CritRate,
             'CritDamage' : CritDamage,
         }
+        self.StarterAbilities = []
     
     def PrintStats(self):
         text = Text()
-        for stat,value in self.Statistics.items():
+        for stat,value in self.stats.items():
             if stat[0:3] == "Max":
-                if self.Statistics[stat] <= 0: continue
+                if self.stats[stat] <= 0: continue
                 text.append(f"{stat[3:len(stat)]} {value}\n")
             elif type(value) == float:
                 text.append(f"{stat} {round(value*100)}%\n")
@@ -175,40 +184,39 @@ Warrior = CharacterClass("Warrior",100,50,0,10,50,0.08,0.15,1.5)
 Mage = CharacterClass("Mage",50,50,100,25,10,0.27,0.15,1.5)
 Ranger = CharacterClass("Ranger",70,100,50,15,20,0.13,0.23,1.5)
 
-
 class ItemClass:
     ItemList = []
 
-    def __init__(self,Name:str="404Error",**Stats):
+    def __init__(self,name:str="404Error",**Stats):
         if GameState.State == GameState.STARTING:
             self.ItemList.append(self)
-        self._Name = Name
+        self._Name = name
         self.id = hash(self._Name)
         self.Sellable = True
-        self.Statistics = {}
+        self.stats = {}
         for Stat,value in Stats.items():
-            self.Statistics[Stat] = value
+            self.stats[Stat] = value
 
     @property
-    def Name(self):
+    def name(self):
         return self._Name
     
-    @Name.setter
-    def Name(self,value):
+    @name.setter
+    def name(self,value):
         self._Name = value
 
     def PrintStats(self,text):
-        for stat in self.Statistics:
-            if self.Statistics[stat] == None: continue
-            if type(self.Statistics[stat]) == float:
-                text.append(f"{stat}: {round(self.Statistics[stat]*100)}%\n")
-            elif type(self.Statistics[stat]) == int:
-                text.append(f"{stat}: {self.Statistics[stat]}\n")
-            elif type(self.Statistics[stat]) == str:
-                text.append(f"{self.Statistics[stat]}\n")
-            elif type(self.Statistics[stat]) == type([]):
+        for stat in self.stats:
+            if self.stats[stat] == None: continue
+            if type(self.stats[stat]) == float:
+                text.append(f"{stat}: {round(self.stats[stat]*100)}%\n")
+            elif type(self.stats[stat]) == int:
+                text.append(f"{stat}: {self.stats[stat]}\n")
+            elif type(self.stats[stat]) == str:
+                text.append(f"{self.stats[stat]}\n")
+            elif type(self.stats[stat]) == type([]):
                 text.append(f"{stat}: \n")
-                for x in self.Statistics[stat]:
+                for x in self.stats[stat]:
                     text.append(f"  *{x}\n")
         return text
     
@@ -217,11 +225,11 @@ class ItemClass:
 
     def ItemToDictionary(self):
         Item = {
-            'Name': self._Name,
-            'Statistics': {}
+            'name': self._Name,
+            'stats': {}
         }
-        for stat in self.Statistics:
-            Item['Statistics'][stat] = self.Statistics[stat] 
+        for stat in self.stats:
+            Item['stats'][stat] = self.stats[stat] 
         return Item
 
     @staticmethod
@@ -229,15 +237,15 @@ class ItemClass:
         newItem = None
         match dict['Type']:
             case Equipment.__name__:
-                newItem = Equipment(dict['Name'],dict['Price'],dict['Slot'],dict['Class'])
+                newItem = Equipment(dict['name'],dict['Price'],dict['Slot'],dict['Class'])
             case Potion.__name__:
-                newItem = Potion(dict['Name'],dict['Price'],dict['Effect'])
+                newItem = Potion(dict['name'],dict['Price'],dict['Effect'])
             case Resource.__name__:
-                newItem = Resource(dict['Name'],dict['BasePrice'],dict['Ammount'])
+                newItem = Resource(dict['name'],dict['BasePrice'],dict['Ammount'])
             case Currency.__name__:
-                newItem = Currency(dict['Name'],dict['BasePrice'],dict['Ammount'])
-        for stat in dict['Statistics']:
-            newItem.Statistics[stat] = dict['Statistics'][stat]
+                newItem = Currency(dict['name'],dict['BasePrice'],dict['Ammount'])
+        for stat in dict['stats']:
+            newItem.stats[stat] = dict['stats'][stat]
         return newItem
 
     def GetPrice(self,Ammount:int=1):
@@ -254,6 +262,7 @@ class ItemClass:
         Inventory.remove(self)
         return Inventory
 
+
 class Equipment(ItemClass):
     class Slot:
         HELMET = 'Helmet'
@@ -262,19 +271,19 @@ class Equipment(ItemClass):
         SECONDARY = 'Secondary'
     
     class Class:
-        MAGE = Mage.Statistics['Name']
-        WARRIOR = Warrior.Statistics['Name']
-        RANGER = Ranger.Statistics['Name']
+        MAGE = Mage.stats['name']
+        WARRIOR = Warrior.stats['name']
+        RANGER = Ranger.stats['name']
 
-    def __init__(self, Name: str = "404Error",Price:int=1,Slot:str=Slot.PRIMARY,Class:str=None, **Stats):
-        super().__init__(Name, **Stats)
+    def __init__(self, name: str = "404Error",Price:int=1,Slot:str=Slot.PRIMARY,Class:str=None, **Stats):
+        super().__init__(name, **Stats)
         self.Price = Price
         self.Slot = Slot
         self.Class = Class
     
     def PrintStats(self):
         text = Text()
-        text.append(f"{self.Name}\nPrice {self.Price}\nSlot: {self.Slot}\n")
+        text.append(f"{self.name}\nPrice {self.Price}\nSlot: {self.Slot}\n")
         text.append("Class: ")
         if type(self.Class) == type([]):
             text.append("\n")
@@ -287,68 +296,54 @@ class Equipment(ItemClass):
 
     def ItemToDictionary(self):
         Item = {
-            'Name': self._Name,
+            'name': self._Name,
             'Type': self.getTypeName(),
             'Price': self.Price,
             'Slot': self.Slot,
             'Class': self.Class,
-            'Statistics': {}
+            'stats': {}
         }
-        for stat in self.Statistics:
-            Item['Statistics'][stat] = self.Statistics[stat] 
+        for stat in self.stats:
+            Item['stats'][stat] = self.stats[stat] 
         return Item
 
     def Use(self, player):
         return player.EquipItem(self)
 
-LeatherArmor = Equipment("Leather armor",70,Equipment.Slot.ARMOR,None,Armor=10)
-IronDagger = Equipment("Iron Dagger",10,Equipment.Slot.SECONDARY,None,Attack=7,CritDamage=0.1)
-ElvenShortbow = Equipment("Elven Shortbow",250,Equipment.Slot.PRIMARY,Equipment.Class.RANGER,Attack=5,CritRate=0.1)
-WizzardHat = Equipment("Wizzard Hat",50,Equipment.Slot.HELMET,None,Armor=5,MaxMana=10)
-IndelStaff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=20,CritDamage=0.2,CritRate=0.05)
-BegginersWand = Equipment("Begginer's Wand",40,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=5,ArmorPenetration=0.05)
-MysticOrb = Equipment("Mystic Orb",150,Equipment.Slot.SECONDARY,Equipment.Class.MAGE,Attack=3,ArmorPenetration=0.08,CritRate=-0.03)
-MageStudentCloak = Equipment("Mage Student's Cloak",100,Equipment.Slot.ARMOR,Equipment.Class.MAGE,Armor=10,MaxMana=20)
-RoundShield = Equipment("Round Shield",100,Equipment.Slot.SECONDARY,Equipment.Class.WARRIOR,Armor=25,CritRate=-0.03,CritDamage=0.1)
 
 class Potion(ItemClass):
     class Effect:
         RESTORE = 'Restore'
 
-    def __init__(self, Name: str = "404Error",Price:int=1,Effect:str=Effect.RESTORE, **Stats):
-        super().__init__(Name, **Stats)
+    def __init__(self, name: str = "404Error",Price:int=1,Effect:str=Effect.RESTORE, **Stats):
+        super().__init__(name, **Stats)
         self.Price = Price
         self.Effect = Effect
 
     def PrintStats(self):
         text = Text()
-        text.append(f"{self.Name}\nPrice: {self.Price}\n{self.Effect}\n")
+        text.append(f"{self.name}\nPrice: {self.Price}\n{self.Effect}\n")
         return super().PrintStats(text)
     
     def ItemToDictionary(self):
         Item = {
-            'Name': self._Name,
+            'name': self._Name,
             'Type': self.getTypeName(),
             'Price': self.Price,
             'Effect': self.Effect,
-            'Statistics': {}
+            'stats': {}
         }
-        for stat in self.Statistics:
-            Item['Statistics'][stat] = self.Statistics[stat] 
+        for stat in self.stats:
+            Item['stats'][stat] = self.stats[stat] 
         return Item
     
     def Use(self, player):
         return player.ConsumeItem(self)
 
-HealthRestore = Potion("Health restore",5,Potion.Effect.RESTORE,Health=0.3)
-WeakManaRestore = Potion("Weak Mana restore",5,Potion.Effect.RESTORE,Mana=25)
-ManaRestore = Potion("Mana restore",10,Potion.Effect.RESTORE,Mana=0.5)
-FullHealthRestore = Potion("Angel's kiss",29,Potion.Effect.RESTORE,Health=1.0,Stamina=1.0,Mana=1.0)
-
 
 class Resource(ItemClass):
-    def __init__(self, Name: str = "404Error",BasePrice:int=1,Ammount:int=1, **Stats):
-        super().__init__(Name, **Stats)
+    def __init__(self, name: str = "404Error",BasePrice:int=1,Ammount:int=1, **Stats):
+        super().__init__(name, **Stats)
         self.BasePrice = BasePrice
         self.Ammount = Ammount
         self._Price = self.BasePrice * self.Ammount
@@ -358,25 +353,25 @@ class Resource(ItemClass):
         return self.BasePrice * self.Ammount
     
     @property
-    def Name(self):
+    def name(self):
         if self.Ammount > 1: return f"{self._Name}s"
         return self._Name
 
     def PrintStats(self):
         text = Text()
-        text.append(f"{self.Name}\nPrice: {self.BasePrice}\nFull Price: {self.Price}\nAmmount: {self.Ammount}")
+        text.append(f"{self.name}\nPrice: {self.BasePrice}\nFull Price: {self.Price}\nAmmount: {self.Ammount}")
         return super().PrintStats(text)
 
     def ItemToDictionary(self):
         Item = {
-            'Name': self._Name,
+            'name': self._Name,
             'Type': self.getTypeName(),
             'BasePrice': self.BasePrice,
             'Ammount': self.Ammount,
-            'Statistics': {}
+            'stats': {}
         }
-        for stat in self.Statistics:
-            Item['Statistics'][stat] = self.Statistics[stat] 
+        for stat in self.stats:
+            Item['stats'][stat] = self.stats[stat] 
         return Item
 
     def GetPrice(self, Ammount: int = 1):
@@ -401,22 +396,16 @@ class Resource(ItemClass):
                 return Inventory
         return Inventory
 
-Log = Resource("Log",1)
-Stone = Resource("Stone",2)
-IronOre = Resource("Iron ore", 4)
-IronBar = Resource("Iron bar", 12)
 
 class Currency(Resource):
-    def __init__(self, Name: str = "404Error", BasePrice: int = 1, Ammount: int = 1, **Stats):
-        super().__init__(Name, BasePrice, Ammount, **Stats)
+    def __init__(self, name: str = "404Error", BasePrice: int = 1, Ammount: int = 1, **Stats):
+        super().__init__(name, BasePrice, Ammount, **Stats)
         self.Sellable = False
     
     def PrintStats(self):
         text = Text()
-        text.append(f"{self.Name}\nAmmount: {self.Ammount}")
+        text.append(f"{self.name}\nAmmount: {self.Ammount}")
         return text
-
-Coin = Currency("Coin")
 
 
 class LootTable:
@@ -446,16 +435,65 @@ class LootTable:
         for item,ammount in DropItems.items():
             LootAmmount += 1
             item.AddToInventory(player.Inventory,ammount)
-            text.append(f"{ammount}x {item.Name}\n" if ammount > 1 else f"{item.Name}\n")
+            text.append(f"{ammount}x {item.name}\n" if ammount > 1 else f"{item.name}\n")
         if LootAmmount == 0: return False
         return text
+
+
+class Ability:
+    def __init__(self, name: str, **cost) -> None:
+        self.name = name
+        self.cost = cost
+
+    def use(self, caster, enemy):
+        pass
+
+
+class DamageAbility(Ability):
+    def __init__(self, name: str, **cost) -> None:
+        super().__init__(name, **cost)
+
+    def calculate_damage(self, attack, armor, armor_pen):
+        armor -= armor*armor_pen
+        reduction = 1+armor/100
+        result = attack/reduction
+        return int(result)
+    
+    def use(self, caster, enemy):
+        text = Text()
+        can_cast = True
+        for name, value in self.cost.items():
+            if caster.stats[name] - value < 0:
+                text.append(f"Insufficient {name}\n")
+                can_cast = False
+        if can_cast == False:
+            return text
+        for name, value in self.cost.items():
+            caster.stats[name] -= value
+        attack = caster.stats['Attack']
+        armor_pen = caster.stats['ArmorPenetration']
+        crit_rate = caster.stats['CritRate']*100
+        crit_damage = caster.stats['CritDamage']
+        enemy_armor = enemy.stats['Armor']
+        damage = self.calculate_damage(attack, enemy_armor, armor_pen)
+        crit_roll = random.randrange(0,100)
+        if crit_roll < crit_rate:
+            text.append("!Critical hit!\n",style=f"{DANGER_COLOR}")
+            damage = int(damage * crit_damage)
+        enemy.Health -= damage
+        text.append(f"{caster.name} dealt ")
+        text.append(f"{damage} ",style=f"{DANGER_COLOR}")
+        text.append(f"Damage\n")
+        return text
+
+
 
 
 class Fight:
     def __init__(self,MaxHealth:int,MaxStamina:int,MaxMana:int,
                  Attack:int,Armor:int,ArmorPen:float,
                  CritRate:float,CritDamage:float,**ScaledStats):
-        self.Statistics = {
+        self.stats = {
             'Level' : 1,
             'MaxHealth' : MaxHealth,
             'Health' : MaxHealth,
@@ -474,54 +512,54 @@ class Fight:
     
     def PrintCombatStats(self):
         text = Text()
-        text.append(f"Level {self.Statistics['Level']}\n")
-        text.append(f"Health {self.Statistics['Health']}/{self.Statistics['MaxHealth']}\n")
-        if self.Statistics['MaxStamina'] != 0:
-            text.append(f"Stamina {self.Statistics['Stamina']}/{self.Statistics['MaxStamina']}\n")
-        if self.Statistics['MaxMana'] != 0:
-            text.append(f"Mana {self.Statistics['Mana']}/{self.Statistics['MaxMana']}\n")
-        text.append(f"Attack {self.Statistics['Attack']}\n")
-        text.append(f"Armor {self.Statistics['Armor']}\n")
-        text.append(f"ArmorPen {round(self.Statistics['ArmorPenetration']*100)}%\n")
-        text.append(f"CritRate {round(self.Statistics['CritRate']*100)}%\n")
-        text.append(f"CritDamage {round(self.Statistics['CritDamage']*100)}%\n")
+        text.append(f"Level {self.stats['Level']}\n")
+        text.append(f"Health {self.stats['Health']}/{self.stats['MaxHealth']}\n")
+        if self.stats['MaxStamina'] != 0:
+            text.append(f"Stamina {self.stats['Stamina']}/{self.stats['MaxStamina']}\n")
+        if self.stats['MaxMana'] != 0:
+            text.append(f"Mana {self.stats['Mana']}/{self.stats['MaxMana']}\n")
+        text.append(f"Attack {self.stats['Attack']}\n")
+        text.append(f"Armor {self.stats['Armor']}\n")
+        text.append(f"ArmorPen {round(self.stats['ArmorPenetration']*100)}%\n")
+        text.append(f"CritRate {round(self.stats['CritRate']*100)}%\n")
+        text.append(f"CritDamage {round(self.stats['CritDamage']*100)}%\n")
         return text
 
     @property
     def Health(self):
-        return self.Statistics['Health']
+        return self.stats['Health']
     
     @Health.setter
     def Health(self,value):
-        self.Statistics['Health'] = value
-        if self.Statistics['Health'] > self.Statistics['MaxHealth']:
-            self.Statistics['Health'] = self.Statistics['MaxHealth']
-        elif self.Statistics['Health'] < 0:
-            self.Statistics['Health'] = 0
+        self.stats['Health'] = value
+        if self.stats['Health'] > self.stats['MaxHealth']:
+            self.stats['Health'] = self.stats['MaxHealth']
+        elif self.stats['Health'] < 0:
+            self.stats['Health'] = 0
     
     @property
     def Stamina(self):
-        return self.Statistics['Stamina']
+        return self.stats['Stamina']
     
     @Stamina.setter
     def Stamina(self,value):
-        self.Statistics['Stamina'] = value
-        if self.Statistics['Stamina'] > self.Statistics['MaxStamina']:
-            self.Statistics['Stamina'] = self.Statistics['MaxStamina']
-        elif self.Statistics['Stamina'] < 0:
-            self.Statistics['Stamina'] = 0
+        self.stats['Stamina'] = value
+        if self.stats['Stamina'] > self.stats['MaxStamina']:
+            self.stats['Stamina'] = self.stats['MaxStamina']
+        elif self.stats['Stamina'] < 0:
+            self.stats['Stamina'] = 0
     
     @property
     def Mana(self):
-        return self.Statistics['Mana']
+        return self.stats['Mana']
     
     @Mana.setter
     def Mana(self,value):
-        self.Statistics['Mana'] = value
-        if self.Statistics['Mana'] > self.Statistics['MaxMana']:
-            self.Statistics['Mana'] = self.Statistics['MaxMana']
-        elif self.Statistics['Mana'] < 0:
-            self.Statistics['Mana'] = 0
+        self.stats['Mana'] = value
+        if self.stats['Mana'] > self.stats['MaxMana']:
+            self.stats['Mana'] = self.stats['MaxMana']
+        elif self.stats['Mana'] < 0:
+            self.stats['Mana'] = 0
 
     def CalculateDamage(self,Attack:int,Armor:int,ArmorPen:float):
         Armor -= Armor*ArmorPen
@@ -531,31 +569,31 @@ class Fight:
     
     def Damage(self,Enemy):
         text = Text()
-        Attack = self.Statistics['Attack']
-        ArmorPen = self.Statistics['ArmorPenetration']
-        CritRate = self.Statistics['CritRate']*100
-        CritDamage = self.Statistics['CritDamage']
-        EnemyArmor = Enemy.Statistics['Armor']
+        Attack = self.stats['Attack']
+        ArmorPen = self.stats['ArmorPenetration']
+        CritRate = self.stats['CritRate']*100
+        CritDamage = self.stats['CritDamage']
+        EnemyArmor = Enemy.stats['Armor']
         Damage = self.CalculateDamage(Attack,EnemyArmor,ArmorPen)
         CritRoll = random.randrange(0,100)
         if CritRoll < CritRate:
             text.append("!Critical hit!\n",style=f"{DANGER_COLOR}")
             Damage = int(Damage * CritDamage)
         Enemy.Health -= Damage
-        text.append(f"{self.Name} dealt ")
+        text.append(f"{self.name} dealt ")
         text.append(f"{Damage} ",style=f"{DANGER_COLOR}")
         text.append(f"Damage\n")
         return text
 
     
 class Enemy(Fight):
-    def __init__(self,Name:str, MaxHealth: int, MaxStamina: int, MaxMana: int,
+    def __init__(self,name:str, MaxHealth: int, MaxStamina: int, MaxMana: int,
                 Attack: int, Armor: int, ArmorPen: float,
                 CritRate: float, CritDamage: float, **ScaledStats):
         super().__init__(MaxHealth, MaxStamina, MaxMana,
                          Attack, Armor, ArmorPen,
                          CritRate, CritDamage, **ScaledStats)
-        self.Name = Name
+        self.name = name
         self.LootTable:LootTable = LootTable()
         self.ExpDrop = 10
         self.ScaledLevels = {}
@@ -564,12 +602,12 @@ class Enemy(Fight):
     
     def PrintStats(self):
         text = Text()
-        text.append(f"{self.Name}\n")
-        for stat,value in self.Statistics.items():
+        text.append(f"{self.name}\n")
+        for stat,value in self.stats.items():
             if stat[0:3] == "Max": continue
-            elif f'Max{stat}' in self.Statistics:
-                if self.Statistics[f'Max{stat}'] <= 0: continue
-                text.append(f"{stat} {value}/{self.Statistics[f'Max{stat}']}\n")
+            elif f'Max{stat}' in self.stats:
+                if self.stats[f'Max{stat}'] <= 0: continue
+                text.append(f"{stat} {value}/{self.stats[f'Max{stat}']}\n")
             elif type(value) == float:
                 text.append(f"{stat} {round(value*100)}%\n")
             elif type(value) == int:
@@ -578,15 +616,43 @@ class Enemy(Fight):
                 text.append(f"{value}\n")
         return text
 
+
+#INSTANCES(CLASSES, ITEMS, ABILITIES, ENEMIES)
+LeatherArmor = Equipment("Leather armor",70,Equipment.Slot.ARMOR,None,Armor=10)
+IronDagger = Equipment("Iron Dagger",10,Equipment.Slot.SECONDARY,None,Attack=7,CritDamage=0.1)
+ElvenShortbow = Equipment("Elven Shortbow",250,Equipment.Slot.PRIMARY,Equipment.Class.RANGER,Attack=5,CritRate=0.1)
+WizzardHat = Equipment("Wizzard Hat",50,Equipment.Slot.HELMET,None,Armor=5,MaxMana=10)
+IndelStaff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=20,CritDamage=0.2,CritRate=0.05)
+BegginersWand = Equipment("Begginer's Wand",40,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=5,ArmorPenetration=0.05)
+MysticOrb = Equipment("Mystic Orb",150,Equipment.Slot.SECONDARY,Equipment.Class.MAGE,Attack=3,ArmorPenetration=0.08,CritRate=-0.03)
+MageStudentCloak = Equipment("Mage Student's Cloak",100,Equipment.Slot.ARMOR,Equipment.Class.MAGE,Armor=10,MaxMana=20)
+RoundShield = Equipment("Round Shield",100,Equipment.Slot.SECONDARY,Equipment.Class.WARRIOR,Armor=25,CritRate=-0.03,CritDamage=0.1)
+
+HealthRestore = Potion("Health restore",5,Potion.Effect.RESTORE,Health=0.3)
+WeakManaRestore = Potion("Weak Mana restore",5,Potion.Effect.RESTORE,Mana=25)
+ManaRestore = Potion("Mana restore",10,Potion.Effect.RESTORE,Mana=0.5)
+FullHealthRestore = Potion("Angel's kiss",29,Potion.Effect.RESTORE,Health=1.0,Stamina=1.0,Mana=1.0)
+
+Log = Resource("Log",1)
+Stone = Resource("Stone",2)
+IronOre = Resource("Iron ore", 4)
+IronBar = Resource("Iron bar", 12)
+
+Coin = Currency("Coin")
+
+BasicAttack = DamageAbility("Basic Attack")
+
 Dummy = Enemy("Dummy",100,0,0,5,0,0.0,0.0,1)
 Dummy.LootTable.update({Coin:[0.5,1,50],LeatherArmor:[0.1,1],IndelStaff:[0.01,1]})
 Bandit = Enemy("Bandit",50,100,0,15,10,0.15,0.20,1.4)
 Bandit.LootTable.update({Coin:[1,5],Coin:[0.2,1,25],LeatherArmor:[0.5,1],IronDagger:[1,1]})
 
+
+
 class Player(Fight):
     def __init__(self):
-        self.Name = "Adventurer"
-        self.Statistics = {
+        self.name = "Adventurer"
+        self.stats = {
             'Class' : None,
             'Level' : 1,
             'Exp' : 0,
@@ -605,6 +671,7 @@ class Player(Fight):
         }
         self.Scaling = {}
         self.Inventory = []
+        self.abilities = [BasicAttack]
         self.Equipment = {
             'Helmet' : None,
             'Armor' : None,
@@ -636,22 +703,26 @@ class Player(Fight):
 
     @Coins.setter
     def Coins(self,value):
+        for item in self.Inventory:
+            if item.id == Coin.id:
+                item.Ammount = value
+                return
         Coin.AddToInventory(self.Inventory,value)
 
     @property
     def Exp(self):
-        return self.Statistics['Exp']
+        return self.stats['Exp']
     
     @Exp.setter
     def Exp(self,value):
-        self.Statistics['Exp'] = value
-        if self.Exp >= self.Statistics['NeedExp']:
-            if self.Statistics['Level'] >= 40: 
-                self.Statistics['Exp'] = self.Statistics['NeedExp']
+        self.stats['Exp'] = value
+        if self.Exp >= self.stats['NeedExp']:
+            if self.stats['Level'] >= 40: 
+                self.stats['Exp'] = self.stats['NeedExp']
                 return
-            self.Statistics['Level'] += 1
-            overflow = self.Exp - self.Statistics['NeedExp']
-            self.Statistics['NeedExp'] = round((self.Statistics['Level']-1)**3+100)
+            self.stats['Level'] += 1
+            overflow = self.Exp - self.stats['NeedExp']
+            self.stats['NeedExp'] = round((self.stats['Level']-1)**3+100)
             self.Exp = overflow
 
     def GetPosition(self):
@@ -660,15 +731,15 @@ class Player(Fight):
     def CalculateBonuses(self):
         #remove bonuses
         for name,value in self.Bonuses.items():
-            if name not in self.Statistics: continue
-            self.Statistics[name] -= value
+            if name not in self.stats: continue
+            self.stats[name] -= value
             self.Bonuses[name] = 0
         
         #calculate equipment bonuses
         for slot in self.Equipment:
             if self.Equipment[slot] == None: continue
             Item = self.Equipment[slot]
-            for name,value in Item.Statistics.items():
+            for name,value in Item.stats.items():
                 if name not in self.Bonuses:
                     self.Bonuses[name] = value
                     continue
@@ -676,19 +747,19 @@ class Player(Fight):
 
         #apply bonuses
         for name,value in self.Bonuses.items():
-            if name not in self.Statistics: continue
-            self.Statistics[name] += value
+            if name not in self.stats: continue
+            self.stats[name] += value
 
     def PrintStats(self):
         text = Text()
         text.append(f"{self.Coins} Coins\n")
-        for stat,value in self.Statistics.items():
+        for stat,value in self.stats.items():
             if stat[0:3] == "Max" or stat[0:4] == "Need": continue
-            elif f'Max{stat}' in self.Statistics:
-                if self.Statistics[f'Max{stat}'] <= 0: continue
-                text.append(f"{stat} {value}/{self.Statistics[f'Max{stat}']}\n")
-            elif f'Need{stat}' in self.Statistics:
-                text.append(f"{stat} {value}/{self.Statistics[f'Need{stat}']}\n")
+            elif f'Max{stat}' in self.stats:
+                if self.stats[f'Max{stat}'] <= 0: continue
+                text.append(f"{stat} {value}/{self.stats[f'Max{stat}']}\n")
+            elif f'Need{stat}' in self.stats:
+                text.append(f"{stat} {value}/{self.stats[f'Need{stat}']}\n")
             elif type(value) == float:
                 text.append(f"{stat} {round(value*100)}%\n")
             elif type(value) == int:
@@ -703,52 +774,52 @@ class Player(Fight):
         ItemClass = TargetItem.Class
         ClassCheck = False
         ItemSlot = Item.Slot
-        if ItemClass == None or ItemClass == self.Statistics['Class']:  ClassCheck = True
+        if ItemClass == None or ItemClass == self.stats['Class']:  ClassCheck = True
         elif type(ItemClass) == type([]):
             for x in ItemClass:
-                if x == self.Statistics['Class']:
+                if x == self.stats['Class']:
                     ClassCheck = True
                     break 
-        elif ItemClass != self.Statistics['Class']: return text.append(f"{Item.Name} is not for your Class")
-        if ClassCheck == False: return text.append(f"{Item.Name} is not for your Class")
+        elif ItemClass != self.stats['Class']: return text.append(f"{Item.name} is not for your Class")
+        if ClassCheck == False: return text.append(f"{Item.name} is not for your Class")
         if self.Equipment[ItemSlot] == None:
             self.Equipment[ItemSlot] = Item
             self.Inventory = Item.RemoveFromInventory(self.Inventory)
             self.CalculateBonuses()
-            return text.append(f"{Item.Name} Equiped")
+            return text.append(f"{Item.name} Equiped")
         else:
             EquipedItem = self.Equipment[ItemSlot]
             self.Equipment[ItemSlot] = Item
             self.Inventory = Item.RemoveFromInventory(self.Inventory)
             self.Inventory = EquipedItem.AddToInventory(self.Inventory)
             self.CalculateBonuses()
-            return text.append(f"{Item.Name} Equiped\n{EquipedItem.Name} Unequiped")
+            return text.append(f"{Item.name} Equiped\n{EquipedItem.name} Unequiped")
 
     def UnequipItem(self,Slot):
         Item = self.Equipment[Slot]
         self.Inventory = Item.AddToInventory(self.Inventory)
         self.Equipment[Slot] = None
         self.CalculateBonuses()
-        return Text(f"{Item.Name} Unequiped")
+        return Text(f"{Item.name} Unequiped")
 
     def ConsumeItem(self,Item):
         text = Text()
         match Item.Effect:
             case Potion.Effect.RESTORE:
-                for name,value in Item.Statistics.items():
-                    if name not in self.Statistics: continue
-                    maxValue = self.Statistics[f"Max{name}"]
+                for name,value in Item.stats.items():
+                    if name not in self.stats: continue
+                    maxValue = self.stats[f"Max{name}"]
                     if maxValue == None:
                         text.append(f"Can't restore {name}\n")
                         continue
-                    if self.Statistics[name] >= maxValue:
+                    if self.stats[name] >= maxValue:
                         text.append(f"Your {name} is full\n")
                         continue
                     if type(value) == int:
-                        self.Statistics[name] += value
+                        self.stats[name] += value
                         text.append(f"{value} of {name} {Item.Effect}d")
                     elif type(value) == float:
-                        self.Statistics[name] += int(maxValue*value)
+                        self.stats[name] += int(maxValue*value)
                         text.append(f"{round(value*100)}% of {name} {Item.Effect}d")
             case _:
                 return Text("Not yet implemented")
@@ -769,12 +840,12 @@ class Player(Fight):
         return True
 
     def NewCharacter(self,Data):
-        self.Statistics['Class'] = Data.Statistics['Name']
-        for name,value in Data.Statistics.items():
-            if name in self.Statistics:
+        self.stats['Class'] = Data.stats['name']
+        for name,value in Data.stats.items():
+            if name in self.stats:
                 if name[0:3] == "Max":
-                    self.Statistics[name[3:len(name)]] = value
-                self.Statistics[name] = value
+                    self.stats[name[3:len(name)]] = value
+                self.stats[name] = value
 
 
 class Game:
@@ -1017,7 +1088,7 @@ class Game:
     def NewGameScreen(self):
         options = []
         for x in CharacterClass.CharacterList:
-            options.append(x.Statistics['Name'])
+            options.append(x.stats['name'])
         options.append("Back")
         target = 0
         while True:
@@ -1053,17 +1124,17 @@ class Game:
         PlayerName = ""
         while True:
             NamingScreen = Text(f"\nName your character\n",justify="center")
-            NamingScreen.append(f"{PlayerName}" if PlayerName != "" else f"'{self.player.Name}'")
+            NamingScreen.append(f"{PlayerName}" if PlayerName != "" else f"'{self.player.name}'")
             self.update_layout("TopL",ratio=2)
             self.update_layout("TopR","",ratio=0)
-            self.update_layout("BottomL",NamingScreen,f"You choose {self.player.Statistics['Class']}",ratio=6)
+            self.update_layout("BottomL",NamingScreen,f"You choose {self.player.stats['Class']}",ratio=6)
             self.update_layout("BottomR","",ratio=0)
             self.update_layout("Left",ratio=1)
             self.update_layout("Right",ratio=0)
             userInput = msvcrt.getwch()
             if userInput == '\r':
                 if PlayerName != "":
-                    self.player.Name = PlayerName
+                    self.player.name = PlayerName
                 break
             elif userInput == '\x08':
                 PlayerName = PlayerName[:-1]
@@ -1082,8 +1153,8 @@ class Game:
             options = ["Travel","Inventory","Save","Menu"]
             InfoScreen = self.OptionsToText(options,target)
             DescriptionScreen = self.player.PrintStats()
-            self.update_layout("TopL",InfoScreen,f"Location: {Map.GetTile(self.player.GetPosition()).Name}",ratio=1)
-            self.update_layout("TopR",DescriptionScreen,self.player.Name,ratio=1)
+            self.update_layout("TopL",InfoScreen,f"Location: {Map.GetTile(self.player.GetPosition()).name}",ratio=1)
+            self.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
             self.update_layout("BottomL","",ratio=1)
             self.update_layout("BottomR","",ratio=0)
             self.update_layout("Left",ratio=1)
@@ -1110,7 +1181,7 @@ class Game:
             mapLegend = Text()
             for tile in GameTileBase:
                 mapLegend.append(f"{tile.MapSymbol}",style=f"{tile.MapColor}")
-                mapLegend.append(f" - {tile.Name}\n")
+                mapLegend.append(f" - {tile.name}\n")
             self.update_layout("TopL",tileInfo,"Tile info",ratio=1)
             self.update_layout("TopR",mapLegend,"Legend",ratio=1)
             self.update_layout("BottomL","",ratio=0)
@@ -1196,7 +1267,7 @@ class Game:
             Key.get_input()
             return
         target = 0
-        options = [Enemy.Name,"Back"]
+        options = [Enemy.name,"Back"]
         while True:
             text = self.OptionsToText(options,target)
             self.update_layout("TopL",text,ratio=1)
@@ -1217,15 +1288,19 @@ class Game:
                     break
     
     def CombatScreen(self,Enemy:Enemy):
-        options = ["Attack","Inventory","Escape"]
         target = 0
         while True:
+            options = []
+            for ability in self.player.abilities:
+                options.append(ability.name)
+            options.append("Inventory")
+            options.append("Escape")
             optionsText = self.OptionsToText(options,target)
             self.update_layout("MainTop",optionsText,ratio=2)
             self.update_layout("TopL",ratio=0)
             self.update_layout("TopR",ratio=0)
-            self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.Name,ratio=6)
-            self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.Name,ratio=6)
+            self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.name,ratio=6)
+            self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.name,ratio=6)
             self.update_layout("Left",ratio=1)
             self.update_layout("Right",ratio=1)
             match Key.get_input():
@@ -1236,42 +1311,42 @@ class Game:
                     target -= 1
                     if target < 0: target = len(options)-1
                 case Key.KEY_enter | Key.KEY_space:
-                    match target:
-                        case 0:
-                            # PLAYER TURN
-                            CombatText = self.player.Damage(Enemy)
-                            self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
-                            self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.Name,ratio=6)
-                            sleep(1/self.Settings['CombatSpeed'])
-                            if Enemy.Health == 0:
-                                CombatText.append(f"{Enemy.Name} has been defeated\n+{Enemy.ExpDrop}Exp")
-                                self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
-                                Key.get_input()
-                                # DROP LOOT AND SHIT
-                                self.player.Exp += Enemy.ExpDrop
-                                CombatText = Enemy.LootTable.Drop(self.player)
-                                if CombatText == False: break
-                                self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
-                                Key.get_input()
-                                break
-                            # ENEMY TURN
-                            CombatText.append(Enemy.Damage(self.player))
-                            self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
-                            self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.Name,ratio=6)
-                            sleep(1/self.Settings['CombatSpeed'])
-                            if self.player.Health == 0:
-                                CombatText.append(f"You have been defeated")
-                                # FUCKING DIE LOL
-                                self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
-                                Key.get_input()
-                                self.update_layout("MainTop",ratio=0)
-                                return True
-                            sleep(1/self.Settings['CombatSpeed'])
-                        case 1:
-                            self.update_layout("MainTop",ratio=0)
-                            self.InventoryScreen()
-                        case 2:
+                    if target == len(options)-1:
+                        break
+                    elif target == len(options)-2:
+                        self.update_layout("MainTop",ratio=0)
+                        self.InventoryScreen()
+                    else:
+                        # PLAYER TURN
+                        CombatText = self.player.abilities[target].use(self.player,Enemy)
+                        self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
+                        self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.name,ratio=6)
+                        sleep(1/self.Settings['CombatSpeed'])
+                        if Enemy.Health == 0:
+                            CombatText.append(f"{Enemy.name} has been defeated\n+{Enemy.ExpDrop}Exp")
+                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            Key.get_input()
+                            # DROP LOOT AND SHIT
+                            self.player.Exp += Enemy.ExpDrop
+                            CombatText = Enemy.LootTable.Drop(self.player)
+                            if CombatText == False: break
+                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            Key.get_input()
                             break
+                        # ENEMY TURN
+                        CombatText.append(Enemy.Damage(self.player))
+                        self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
+                        self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.name,ratio=6)
+                        sleep(1/self.Settings['CombatSpeed'])
+                        if self.player.Health == 0:
+                            CombatText.append(f"You have been defeated")
+                            # FUCKING DIE LOL
+                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            Key.get_input()
+                            self.update_layout("MainTop",ratio=0)
+                            return True
+                        sleep(1/self.Settings['CombatSpeed'])
+
         self.update_layout("MainTop",ratio=0)
     
     def InventoryScreen(self):
@@ -1308,23 +1383,23 @@ class Game:
                 if len(Pages[currentPage]) > 0:
                     for index, Item in enumerate(Pages[currentPage]):
                         if index == targetInventory and activeWindow == 0: 
-                            InventoryScreen.append(f">{Item.Name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
+                            InventoryScreen.append(f">{Item.name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
                             targetItem = Item
                             InfoScreen.append(targetItem.PrintStats())
-                        else: InventoryScreen.append(f"{Item.Name}\n" ,style=f"{TEXT_COLOR}")
+                        else: InventoryScreen.append(f"{Item.name}\n" ,style=f"{TEXT_COLOR}")
                 if targetInventory == ExitIndex and activeWindow == 0: InventoryScreen.append(">Back\n" ,style=f"u {GO_BACK_COLOR}")
                 elif activeWindow == 0: InventoryScreen.append("Back\n" ,style=f"{TEXT_COLOR}")
 
                 for index, slot in enumerate(self.player.Equipment):
                     if index == targetEquipement and activeWindow == 1:
                         if self.player.Equipment[slot] != None:
-                            EquipementScreen.append(f"{slot}: {self.player.Equipment[slot].Name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
+                            EquipementScreen.append(f"{slot}: {self.player.Equipment[slot].name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
                             targetItem = self.player.Equipment[slot]
                             InfoScreen.append(targetItem.PrintStats())
                         else: EquipementScreen.append(f"{slot}: {self.player.Equipment[slot]}\n" ,style=f"u {HIGHLIGHT_COLOR}")
                         targetSlot = slot
                     else:
-                        if self.player.Equipment[slot] != None: EquipementScreen.append(f"{slot}: {self.player.Equipment[slot].Name}\n" ,style=f"{TEXT_COLOR}")
+                        if self.player.Equipment[slot] != None: EquipementScreen.append(f"{slot}: {self.player.Equipment[slot].name}\n" ,style=f"{TEXT_COLOR}")
                         else: EquipementScreen.append(f"{slot}: {self.player.Equipment[slot]}\n" ,style=f"{TEXT_COLOR}")
                 if targetEquipement == ExitIndex and activeWindow == 1: EquipementScreen.append(">Back\n" ,style=f"u {GO_BACK_COLOR}")
                 elif activeWindow == 1: EquipementScreen.append("Back\n" ,style=f"{TEXT_COLOR}")
@@ -1440,20 +1515,20 @@ class Game:
             if len(InventoryPages[currentInventoryPage]) > 0:
                 for index, Item in enumerate(InventoryPages[currentInventoryPage]):
                     if index == targetInventory and activeWindow == 0: 
-                        InventoryScreen.append(f">{Item.Name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
+                        InventoryScreen.append(f">{Item.name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
                         targetItem = Item
                         InfoScreen.append(targetItem.PrintStats())
-                    else: InventoryScreen.append(f"{Item.Name}\n" ,style=f"{TEXT_COLOR}")
+                    else: InventoryScreen.append(f"{Item.name}\n" ,style=f"{TEXT_COLOR}")
             if targetInventory == ExitIndex and activeWindow == 0: InventoryScreen.append(">Back\n" ,style=f"u {GO_BACK_COLOR}")
             elif activeWindow == 0: InventoryScreen.append("Back\n" ,style=f"{TEXT_COLOR}")
 
             if len(ShopPages[currentShopPage]) > 0:
                 for index, Item in enumerate(ShopPages[currentShopPage]):
                     if index == targetShop and activeWindow == 1: 
-                        ShopScreen.append(f">{Item.Name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
+                        ShopScreen.append(f">{Item.name}\n" ,style=f"u {HIGHLIGHT_COLOR}")
                         targetItem = Item
                         InfoScreen.append(targetItem.PrintStats())
-                    else: ShopScreen.append(f"{Item.Name}\n" ,style=f"{TEXT_COLOR}")
+                    else: ShopScreen.append(f"{Item.name}\n" ,style=f"{TEXT_COLOR}")
             if targetShop == ExitIndex and activeWindow == 1: ShopScreen.append(">Back\n" ,style=f"u {GO_BACK_COLOR}")
             elif activeWindow == 1: ShopScreen.append("Back\n" ,style=f"{TEXT_COLOR}")
 
@@ -1538,7 +1613,7 @@ class Game:
             InfoScreen = self.OptionsToText(options,target)
             DescriptionScreen = self.player.PrintStats()
             self.update_layout("TopL",InfoScreen,f"{self.player.Coins} Coins",ratio=1)
-            self.update_layout("TopR",DescriptionScreen,self.player.Name,ratio=1)
+            self.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
             self.update_layout("BottomL","",ratio=0)
             self.update_layout("BottomR","",ratio=0)
             self.update_layout("Left",ratio=1)
@@ -1560,10 +1635,10 @@ class Game:
         if self.player.Coins < 5: return
         self.player.Coins -= 5
         text = Text("You feel rested\n\n")
-        for name,value in self.player.Statistics.items():
+        for name,value in self.player.stats.items():
             if name[0:3] != "Max": continue
-            if self.player.Statistics[name[3:len(name)]] >= value: continue
-            self.player.Statistics[name[3:len(name)]] = value
+            if self.player.stats[name[3:len(name)]] >= value: continue
+            self.player.stats[name[3:len(name)]] = value
             text.append(f"Your {name[3:len(name)]} is restored\n")
         text.append("\nPress any key to continue")
         self.update_layout("TopL","You are resting",ratio=1)
@@ -1575,7 +1650,7 @@ class Game:
         self.update_layout("TopL","You are resting...",ratio=1)
         sleep(0.4)
         self.update_layout("TopL",text,ratio=1)
-        self.update_layout("TopR",self.player.PrintStats(),self.player.Name,ratio=1)
+        self.update_layout("TopR",self.player.PrintStats(),self.player.name,ratio=1)
         self.Tick()
         Key.get_input()
 
@@ -1609,8 +1684,8 @@ class Game:
                     with open(SaveFilePath+"/"+saveName+".json", "r") as read_file:
                         data = json.load(read_file)
                         read_file.close()
-                    SaveOptionText.append(f"{data['Name']}\n")
-                    SaveOptionText.append(f"Class: {data['Statistics']['Class']}\nLevel: {data['Statistics']['Level']}\nTurn-{data['tick']}\n")
+                    SaveOptionText.append(f"{data['name']}\n")
+                    SaveOptionText.append(f"Class: {data['stats']['Class']}\nLevel: {data['stats']['Level']}\nTurn-{data['tick']}\n")
                 else:
                     SaveOptionText.append("\n")
                     SaveListText.append(f"{saveName}\n",style=f"{TEXT_COLOR}")
@@ -1672,14 +1747,14 @@ class Game:
             data = json.load(read_file)
             read_file.close()
 
-        if data['GameVersion'] != GameVersion:
+        if data['GameVersion'] != GAME_VERSION:
             while True:
                 SaveVersionText = Text(f"Save version\n{data['GameVersion']}",justify="right")
-                GameVersionText = Text(f"Game version\n{GameVersion}")
+                game_version_text = Text(f"Game version\n{GAME_VERSION}")
                 text = Text("\n\nSave version is different from Game version\n",justify='center')
                 text.append("Press Y key to continue\n")
                 self.update_layout("TopL",SaveVersionText,ratio=1)
-                self.update_layout("TopR",GameVersionText,ratio=1)
+                self.update_layout("TopR",game_version_text,ratio=1)
                 self.update_layout("MainTop",text)
                 if Key.get_input() != Key.KEY_y:
                     self.update_layout("MainTop",visible=False)
@@ -1688,10 +1763,10 @@ class Game:
 
         self.update_layout("MainTop",visible=False)
 
-        self.player.Name = data['Name']
-        for SaveStat in data['Statistics']:
-            if SaveStat in self.player.Statistics:
-                self.player.Statistics[SaveStat] = data['Statistics'][SaveStat]
+        self.player.name = data['name']
+        for SaveStat in data['stats']:
+            if SaveStat in self.player.stats:
+                self.player.stats[SaveStat] = data['stats'][SaveStat]
         for bonus in data['Bonuses']:
             self.player.Bonuses[bonus] = data['Bonuses'][bonus]
         for item in data['Inventory']:
@@ -1718,18 +1793,18 @@ class Game:
 
     def SaveGame(self,SaveName:str):
         Save = {
-            'Name' : self.player.Name,
-            'Statistics' : {},
+            'name' : self.player.name,
+            'stats' : {},
             'Bonuses': {},
             'Inventory' : {},
             'Equipment' : {},
             'Location' : {},
-            'GameVersion': GameVersion,
+            'GameVersion': GAME_VERSION,
             'tick': self.player.tick,
             'tickGameUpdate': self.player.tickGameUpdate,
         }
-        for stat in self.player.Statistics:
-            Save['Statistics'][stat] = self.player.Statistics[stat]
+        for stat in self.player.stats:
+            Save['stats'][stat] = self.player.stats[stat]
         for bonus in self.player.Bonuses:
             Save['Bonuses'][bonus] = self.player.Bonuses[bonus]
         for item in self.player.Inventory:
@@ -1792,12 +1867,12 @@ class Game:
         userSaveName = ""
         while True:
             text = Text("\n",justify='center')
-            text.append(f"{userSaveName}" if userSaveName != "" else f"'{self.player.Name}'")
+            text.append(f"{userSaveName}" if userSaveName != "" else f"'{self.player.name}'")
             self.update_layout("MainTop",text,"Save file name:",ratio=2)
             userInput = msvcrt.getwch()
             if userInput == '\r':
                 if userSaveName == "":
-                    userSaveName = self.player.Name
+                    userSaveName = self.player.name
                 if os.path.exists(f"{SaveFilePath}/{userSaveName}.json"):
                     overwriteText = Text("Save file already exists\n",justify='center')
                     overwriteText.append(f"{userSaveName}\n",style=f"{DANGER_COLOR}")
@@ -1840,8 +1915,8 @@ class Game:
 game = Game()
 
 class Tiles:
-    def __init__(self,Name:str="Town",MapSymbol:str="#",MapColor:str="white",Hostile:bool=False,PossibleEnemies=[],**Contents):
-        self.Name = Name
+    def __init__(self,name:str="Town",MapSymbol:str="#",MapColor:str="white",Hostile:bool=False,PossibleEnemies=[],**Contents):
+        self.name = name
         self.MapSymbol = MapSymbol
         self.MapColor = MapColor
         self.Hostile = Hostile
@@ -1853,7 +1928,7 @@ class Tiles:
     
     def DisplayTileInfo(self):
         text = Text()
-        text.append(f"{self.Name}\n")
+        text.append(f"{self.name}\n")
         if self.Hostile: text.append("Hostile\n",style="red")
         if self.Content != {}: text.append("Activities:\n")
         for name, _ in self.Content.items():
