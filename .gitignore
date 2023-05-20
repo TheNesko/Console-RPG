@@ -5,6 +5,7 @@ __pycache__/
 
 #others
 Settings.json
+*.json
 
 # Distribution / packaging
 .Python

@@ -152,7 +152,7 @@ class CharacterClass:
             'MaxMana': MaxMana,
             'Attack' : Attack,
             'Armor' : Armor,
-            'ArmorPenetraion': ArmorPen,
+            'ArmorPenetration': ArmorPen,
             'CritRate' : CritRate,
             'CritDamage' : CritDamage,
         }
@@ -305,7 +305,10 @@ LeatherArmor = Equipment("Leather armor",70,Equipment.Slot.ARMOR,None,Armor=10)
 IronDagger = Equipment("Iron Dagger",10,Equipment.Slot.SECONDARY,None,Attack=7,CritDamage=0.1)
 ElvenShortbow = Equipment("Elven Shortbow",250,Equipment.Slot.PRIMARY,Equipment.Class.RANGER,Attack=5,CritRate=0.1)
 WizzardHat = Equipment("Wizzard Hat",50,Equipment.Slot.HELMET,None,Armor=5,MaxMana=10)
-IndelStaff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=100,CritDamage=1.5,CritRate=1)
+IndelStaff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=20,CritDamage=0.2,CritRate=0.05)
+BegginersWand = Equipment("Begginer's Wand",40,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=5,ArmorPenetration=0.05)
+MysticOrb = Equipment("Mystic Orb",150,Equipment.Slot.SECONDARY,Equipment.Class.MAGE,Attack=3,ArmorPenetration=0.08,CritRate=-0.03)
+MageStudentCloak = Equipment("Mage Student's Cloak",100,Equipment.Slot.ARMOR,Equipment.Class.MAGE,Armor=10,MaxMana=20)
 RoundShield = Equipment("Round Shield",100,Equipment.Slot.SECONDARY,Equipment.Class.WARRIOR,Armor=25,CritRate=-0.03,CritDamage=0.1)
 
 class Potion(ItemClass):
@@ -462,7 +465,7 @@ class Fight:
             'MaxMana': MaxMana,
             'Attack' : Attack,
             'Armor' : Armor,
-            'ArmorPenetraion': ArmorPen,
+            'ArmorPenetration': ArmorPen,
             'CritRate' : CritRate,
             'CritDamage' : CritDamage,
         }
@@ -479,7 +482,7 @@ class Fight:
             text.append(f"Mana {self.Statistics['Mana']}/{self.Statistics['MaxMana']}\n")
         text.append(f"Attack {self.Statistics['Attack']}\n")
         text.append(f"Armor {self.Statistics['Armor']}\n")
-        text.append(f"ArmorPen {round(self.Statistics['ArmorPenetraion']*100)}%\n")
+        text.append(f"ArmorPen {round(self.Statistics['ArmorPenetration']*100)}%\n")
         text.append(f"CritRate {round(self.Statistics['CritRate']*100)}%\n")
         text.append(f"CritDamage {round(self.Statistics['CritDamage']*100)}%\n")
         return text
@@ -529,7 +532,7 @@ class Fight:
     def Damage(self,Enemy):
         text = Text()
         Attack = self.Statistics['Attack']
-        ArmorPen = self.Statistics['ArmorPenetraion']
+        ArmorPen = self.Statistics['ArmorPenetration']
         CritRate = self.Statistics['CritRate']*100
         CritDamage = self.Statistics['CritDamage']
         EnemyArmor = Enemy.Statistics['Armor']
@@ -596,7 +599,7 @@ class Player(Fight):
             'MaxMana': 1,
             'Attack' : 1,
             'Armor' : 0,
-            'ArmorPenetraion': 0,
+            'ArmorPenetration': 0,
             'CritRate' : 0,
             'CritDamage' : 0,
         }
@@ -613,7 +616,7 @@ class Player(Fight):
             'Health' : 0,
             'Attack' : 0,
             'Armor' : 0,
-            'ArmorPenetraion': 0,
+            'ArmorPenetration': 0,
             'CritRate' : 0,
             'CritDamage' : 0,
         }
@@ -633,9 +636,7 @@ class Player(Fight):
 
     @Coins.setter
     def Coins(self,value):
-        for item in self.Inventory:
-            if item.getTypeName() == Currency.__name__:
-                item.Ammount = value
+        Coin.AddToInventory(self.Inventory,value)
 
     @property
     def Exp(self):
