@@ -627,35 +627,37 @@ class Enemy(Fight):
 
 
 #INSTANCES(CLASSES, ITEMS, ABILITIES, ENEMIES)
-LeatherArmor = Equipment("Leather armor",70,Equipment.Slot.ARMOR,None,Armor=10)
-IronDagger = Equipment("Iron Dagger",10,Equipment.Slot.SECONDARY,None,Attack=7,CritDamage=0.1)
-ElvenShortbow = Equipment("Elven Shortbow",250,Equipment.Slot.PRIMARY,Equipment.Class.RANGER,Attack=5,CritRate=0.1)
-WizzardHat = Equipment("Wizzard Hat",50,Equipment.Slot.HELMET,None,Armor=5,MaxMana=10)
-IndelStaff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=20,CritDamage=0.2,CritRate=0.05)
-BegginersWand = Equipment("Begginer's Wand",40,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=5,ArmorPenetration=0.05)
-MysticOrb = Equipment("Mystic Orb",150,Equipment.Slot.SECONDARY,Equipment.Class.MAGE,Attack=3,ArmorPenetration=0.08,CritRate=-0.03)
-MageStudentCloak = Equipment("Mage Student's Cloak",100,Equipment.Slot.ARMOR,Equipment.Class.MAGE,Armor=10,MaxMana=20)
-RoundShield = Equipment("Round Shield",100,Equipment.Slot.SECONDARY,Equipment.Class.WARRIOR,Armor=25,CritRate=-0.03,CritDamage=0.1)
+leather_armor = Equipment("Leather Armor",70,Equipment.Slot.ARMOR,None,Armor=10)
+steel_sword = Equipment("Steel Sword",275,Equipment.Slot.PRIMARY,Equipment.Class.WARRIOR,Attack=12,CritDamage=0.05)
+iron_armor = Equipment("Iron Armor",300,Equipment.Slot.ARMOR,Equipment.Class.WARRIOR,Armor=25,MaxStamina=-5)
+iron_dagger = Equipment("Iron Dagger",10,Equipment.Slot.SECONDARY,None,Attack=7,CritDamage=0.1)
+elven_shortbow = Equipment("Elven Shortbow",250,Equipment.Slot.PRIMARY,Equipment.Class.RANGER,Attack=5,CritRate=0.1)
+wizzard_hat = Equipment("Wizzard Hat",50,Equipment.Slot.HELMET,None,Armor=5,MaxMana=10)
+indel_staff = Equipment("Indel's Staff",2500,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=20,CritDamage=0.2,CritRate=0.05)
+begginers_wand = Equipment("Begginer's Wand",40,Equipment.Slot.PRIMARY,Equipment.Class.MAGE,Attack=5,ArmorPenetration=0.05)
+mystic_orb = Equipment("Mystic Orb",150,Equipment.Slot.SECONDARY,Equipment.Class.MAGE,Attack=3,ArmorPenetration=0.08,CritRate=-0.03)
+mage_student_cloak = Equipment("Mage Student's Cloak",100,Equipment.Slot.ARMOR,Equipment.Class.MAGE,Armor=10,MaxMana=20)
+round_shield = Equipment("Round Shield",100,Equipment.Slot.SECONDARY,Equipment.Class.WARRIOR,Armor=25,CritRate=-0.03,CritDamage=0.1)
 
-HealthRestore = Potion("Health restore",5,Potion.Effect.RESTORE,Health=0.3)
-WeakManaRestore = Potion("Weak Mana restore",5,Potion.Effect.RESTORE,Mana=25)
-ManaRestore = Potion("Mana restore",10,Potion.Effect.RESTORE,Mana=0.5)
-FullHealthRestore = Potion("Angel's kiss",29,Potion.Effect.RESTORE,Health=1.0,Stamina=1.0,Mana=1.0)
+health_restore = Potion("Health restore",5,Potion.Effect.RESTORE,Health=0.3)
+weak_mana_restore = Potion("Weak Mana restore",5,Potion.Effect.RESTORE,Mana=25)
+mana_restore = Potion("Mana restore",10,Potion.Effect.RESTORE,Mana=0.5)
+stat_restore = Potion("Angel's kiss",29,Potion.Effect.RESTORE,Health=1.0,Stamina=1.0,Mana=1.0)
 
-Log = Resource("Log",1)
-Stone = Resource("Stone",2)
-IronOre = Resource("Iron ore", 4)
-IronBar = Resource("Iron bar", 12)
+log = Resource("Log",1)
+stone = Resource("Stone",2)
+iron_ore = Resource("Iron ore", 4)
+iron_bar = Resource("Iron bar", 12)
 
-Coin = Currency("Coin")
+coin = Currency("Coin")
 
-BasicAttack = DamageAbility("Basic Attack",1)
-HeavyAttack = DamageAbility("Heavy Attack",1.25,Stamina=10)
+basic_attack = DamageAbility("Basic Attack",1)
+heavy_attack = DamageAbility("Heavy Attack",1.25,Stamina=10)
 
 Dummy = Enemy("Dummy",100,0,0,5,0,0.0,0.0,1)
-Dummy.LootTable.update({Coin:[0.5,1,50],LeatherArmor:[0.1,1],IndelStaff:[0.01,1]})
+Dummy.LootTable.update({coin:[0.5,1,50],leather_armor:[0.1,1],indel_staff:[0.01,1]})
 Bandit = Enemy("Bandit",50,100,0,15,10,0.15,0.20,1.4)
-Bandit.LootTable.update({Coin:[1,5],Coin:[0.2,1,25],LeatherArmor:[0.5,1],IronDagger:[1,1]})
+Bandit.LootTable.update({coin:[1,5],coin:[0.2,1,25],leather_armor:[0.5,1],iron_dagger:[1,1]})
 
 
 
@@ -681,7 +683,7 @@ class Player(Fight):
         }
         self.Scaling = {}
         self.Inventory = []
-        self.abilities = [BasicAttack,HeavyAttack]
+        self.abilities = [basic_attack,heavy_attack]
         self.Equipment = {
             'Helmet' : None,
             'Armor' : None,
@@ -707,17 +709,17 @@ class Player(Fight):
     @property
     def Coins(self):
         for item in self.Inventory:
-            if item.id == Coin.id:
+            if item.id == coin.id:
                 return item.Ammount
         return 0
 
     @Coins.setter
     def Coins(self,value):
         for item in self.Inventory:
-            if item.id == Coin.id:
+            if item.id == coin.id:
                 item.Ammount = value
                 return
-        Coin.AddToInventory(self.Inventory,value)
+        coin.AddToInventory(self.Inventory,value)
 
     @property
     def Exp(self):
@@ -1678,7 +1680,7 @@ class Game:
             if name[0:3] != "Max": continue
             if self.player.stats[name[3:len(name)]] >= value: continue
             self.player.stats[name[3:len(name)]] = value
-            text.append(f"Your {name[3:len(name)]} is restored\n")
+            text.append(f"{name[3:len(name)]} is restored\n")
         text.append("\nPress any key to continue")
         self.update_layout("TopL","You are resting",ratio=1)
         sleep(0.4)
