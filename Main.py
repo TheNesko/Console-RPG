@@ -23,6 +23,7 @@ if not os.path.exists(SaveFilePath):
 
 TEXT_COLOR = "green"
 HIGHLIGHT_COLOR = "dark_green"
+UNAVALIBLE = "grey37"
 PANEL_COLOR = "white"
 GO_BACK_COLOR = "dark_orange"
 DANGER_COLOR = "red"
@@ -450,43 +451,51 @@ class Ability:
 
 
 class DamageAbility(Ability):
-    def __init__(self, name: str, **cost) -> None:
+    def __init__(self, name: str, damage_multiplayer:float=1.0, **cost) -> None:
         super().__init__(name, **cost)
+        self.damage_multiplayer = damage_multiplayer
+
+    def print_stats(self,caster):
+        text = Text()
+        text.append(f"{self.name}\n")
+        text.append(f"Damage {int(caster.stats['Attack']*self.damage_multiplayer)}\n")
+        if len(self.cost) != 0:
+            text.append("Cost:\n")
+        for name,value in self.cost.items():
+            text.append(f"*{name} {value}\n")
+        return text
+
+    def can_use(self, caster):
+        for name, value in self.cost.items():
+            if caster.stats[name] - value < 0:
+                return False
+        return True
 
     def calculate_damage(self, attack, armor, armor_pen):
         armor -= armor*armor_pen
-        reduction = 1+armor/100
-        result = attack/reduction
+        reduction = 1+armor / 100
+        result = attack*self.damage_multiplayer / reduction
         return int(result)
     
-    def use(self, caster, enemy):
+    def use(self, caster, target):
         text = Text()
-        can_cast = True
-        for name, value in self.cost.items():
-            if caster.stats[name] - value < 0:
-                text.append(f"Insufficient {name}\n")
-                can_cast = False
-        if can_cast == False:
-            return text
         for name, value in self.cost.items():
             caster.stats[name] -= value
         attack = caster.stats['Attack']
         armor_pen = caster.stats['ArmorPenetration']
         crit_rate = caster.stats['CritRate']*100
         crit_damage = caster.stats['CritDamage']
-        enemy_armor = enemy.stats['Armor']
+        enemy_armor = target.stats['Armor']
         damage = self.calculate_damage(attack, enemy_armor, armor_pen)
         crit_roll = random.randrange(0,100)
         if crit_roll < crit_rate:
             text.append("!Critical hit!\n",style=f"{DANGER_COLOR}")
             damage = int(damage * crit_damage)
-        enemy.Health -= damage
+        target.Health -= damage
         text.append(f"{caster.name} dealt ")
         text.append(f"{damage} ",style=f"{DANGER_COLOR}")
         text.append(f"Damage\n")
         return text
-
-
 
 
 class Fight:
@@ -510,7 +519,7 @@ class Fight:
         self.StatusEffects = []
 
     
-    def PrintCombatStats(self):
+    def print_combat_stats(self):
         text = Text()
         text.append(f"Level {self.stats['Level']}\n")
         text.append(f"Health {self.stats['Health']}/{self.stats['MaxHealth']}\n")
@@ -640,7 +649,8 @@ IronBar = Resource("Iron bar", 12)
 
 Coin = Currency("Coin")
 
-BasicAttack = DamageAbility("Basic Attack")
+BasicAttack = DamageAbility("Basic Attack",1)
+HeavyAttack = DamageAbility("Heavy Attack",1.25,Stamina=10)
 
 Dummy = Enemy("Dummy",100,0,0,5,0,0.0,0.0,1)
 Dummy.LootTable.update({Coin:[0.5,1,50],LeatherArmor:[0.1,1],IndelStaff:[0.01,1]})
@@ -671,7 +681,7 @@ class Player(Fight):
         }
         self.Scaling = {}
         self.Inventory = []
-        self.abilities = [BasicAttack]
+        self.abilities = [BasicAttack,HeavyAttack]
         self.Equipment = {
             'Helmet' : None,
             'Armor' : None,
@@ -1295,12 +1305,36 @@ class Game:
                 options.append(ability.name)
             options.append("Inventory")
             options.append("Escape")
-            optionsText = self.OptionsToText(options,target)
-            self.update_layout("MainTop",optionsText,ratio=2)
-            self.update_layout("TopL",ratio=0)
-            self.update_layout("TopR",ratio=0)
-            self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.name,ratio=6)
-            self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.name,ratio=6)
+            
+            options_text = Text()
+            for index,option in enumerate(options):
+                if index == len(options)-1 and target == index:
+                    options_text.append(f">{index+1}.{option}\n",f"u {GO_BACK_COLOR}")
+                elif index == target:
+                    if index < len(options)-2:
+                        if self.player.abilities[index].can_use(self.player):
+                            options_text.append(f">{index+1}.{option}\n",f"u {HIGHLIGHT_COLOR}")
+                        else:
+                            options_text.append(f">{index+1}.{option}\n",f"u {UNAVALIBLE}")
+                    else:
+                        options_text.append(f">{index+1}.{option}\n",f"u {HIGHLIGHT_COLOR}")
+                else:
+                    if index < len(options)-2:
+                        if self.player.abilities[index].can_use(self.player):
+                            options_text.append(f"{index+1}.{option}\n",TEXT_COLOR)
+                        else:
+                            options_text.append(f"{index+1}.{option}\n",UNAVALIBLE)
+                    else:
+                        options_text.append(f"{index+1}.{option}\n",TEXT_COLOR)
+            
+            ability_stats_text = Text()
+            if target < len(options)-2:
+                ability_stats_text = self.player.abilities[target].print_stats(self.player)
+            self.update_layout("MainTop",ratio=0)
+            self.update_layout("TopL",options_text,"Actions",ratio=3)
+            self.update_layout("TopR",ability_stats_text,ratio=3)
+            self.update_layout("BottomL",self.player.print_combat_stats(),self.player.name,ratio=6)
+            self.update_layout("BottomR",Enemy.print_combat_stats(),Enemy.name,ratio=6)
             self.update_layout("Left",ratio=1)
             self.update_layout("Right",ratio=1)
             match Key.get_input():
@@ -1317,31 +1351,36 @@ class Game:
                         self.update_layout("MainTop",ratio=0)
                         self.InventoryScreen()
                     else:
+                        self.update_layout("TopL",ratio=0)
+                        self.update_layout("TopR",ratio=0)
                         # PLAYER TURN
-                        CombatText = self.player.abilities[target].use(self.player,Enemy)
-                        self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
-                        self.update_layout("BottomR",Enemy.PrintCombatStats(),Enemy.name,ratio=6)
+                        if self.player.abilities[target].can_use(self.player) == False:
+                            continue
+                        combat_text = self.player.abilities[target].use(self.player,Enemy)
+                        self.update_layout("MainTop",combat_text,"Combat in progress",ratio=2)
+                        self.update_layout("BottomR",Enemy.print_combat_stats(),Enemy.name,ratio=6)
                         sleep(1/self.Settings['CombatSpeed'])
                         if Enemy.Health == 0:
-                            CombatText.append(f"{Enemy.name} has been defeated\n+{Enemy.ExpDrop}Exp")
-                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            combat_text.append(f"{Enemy.name} has been defeated\n+{Enemy.ExpDrop}Exp")
+                            self.update_layout("MainTop",combat_text,"Press any key to continue",ratio=2)
                             Key.get_input()
                             # DROP LOOT AND SHIT
                             self.player.Exp += Enemy.ExpDrop
-                            CombatText = Enemy.LootTable.Drop(self.player)
-                            if CombatText == False: break
-                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            combat_text = Enemy.LootTable.Drop(self.player)
+                            if combat_text == False:
+                                break
+                            self.update_layout("MainTop",combat_text,"Press any key to continue",ratio=2)
                             Key.get_input()
                             break
                         # ENEMY TURN
-                        CombatText.append(Enemy.Damage(self.player))
-                        self.update_layout("MainTop",CombatText,"Combat in progress",ratio=2)
-                        self.update_layout("BottomL",self.player.PrintCombatStats(),self.player.name,ratio=6)
+                        combat_text.append(Enemy.Damage(self.player))
+                        self.update_layout("MainTop",combat_text,"Combat in progress",ratio=2)
+                        self.update_layout("BottomL",self.player.print_combat_stats(),self.player.name,ratio=6)
                         sleep(1/self.Settings['CombatSpeed'])
                         if self.player.Health == 0:
-                            CombatText.append(f"You have been defeated")
+                            combat_text.append(f"You have been defeated")
                             # FUCKING DIE LOL
-                            self.update_layout("MainTop",CombatText,"Press any key to continue",ratio=2)
+                            self.update_layout("MainTop",combat_text,"Press any key to continue",ratio=2)
                             Key.get_input()
                             self.update_layout("MainTop",ratio=0)
                             return True
