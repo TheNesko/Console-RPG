@@ -9,27 +9,62 @@ class Color:
     DANGER_COLOR = "red"
     NEW_SAVE_FILE = "bright_blue"
 
-layout = Layout()
-layout.split_column(
+old_layout = Layout()
+old_layout.split_column(
 Layout(name='MainTop',ratio=2,visible=False),
 Layout(name='MainBottom',ratio=6)
 )
-layout['MainBottom'].split_column(
+old_layout['MainBottom'].split_column(
 Layout(name='Game',ratio=2),
 Layout(name='Map',ratio=6,visible=False)
 )
-layout['Game'].split_row(
+old_layout['Game'].split_row(
 Layout(name='Left',ratio=1),
 Layout(name='Right',ratio=1)
 )
-layout["Left"].split_column(
+old_layout["Left"].split_column(
 Layout(name='TopL',ratio=2),
 Layout(name='BottomL',ratio=6)
 )
-layout["Right"].split_column(
+old_layout["Right"].split_column(
 Layout(name='TopR',ratio=2),
 Layout(name='BottomR',ratio=6)
 )
+
+layout = Layout(name="main")
+
+menu_layout = Layout(name="menu")
+menu_layout.split_column(
+    Layout(name="top", ratio=2),
+    Layout(name="bottom", ratio=6),
+)
+
+inventory_layout = Layout(name="inventory")
+inventory_layout.split_row(
+    Layout(name="left", ratio=1),
+    Layout(name="right", ratio=1),
+)
+inventory_layout["right"].split_column(
+    Layout(name="right_top", ratio=2),
+    Layout(name="right_bottom", ratio=6),
+)
+
+shop_layout = Layout(name="shop")
+shop_layout.split_row(
+    Layout(name="left", ratio=1),
+    Layout(name="right", ratio=1),
+)
+shop_layout["left"].split_column(
+    Layout(name="left_top", ratio=2),
+    Layout(name="left_bottom", ratio=6),
+)
+shop_layout["right"].split_column(
+    Layout(name="right_top", ratio=2),
+    Layout(name="right_bottom", ratio=6),
+)
+
+confirm_layout = Layout(name="main")
+
 
 class Display:
     @staticmethod
@@ -71,22 +106,32 @@ class Display:
                             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                             win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED)
 
-    @staticmethod
-    def update_layout(layout_name: str,
-                      content="",
-                      title: str=None,
-                      ratio: int=None,
-                      visible: bool=True,
-                      border=box.MINIMAL):
-        layout[layout_name].update(Panel(content,title=title,style=Color.PANEL_COLOR,box=border))
-        if ratio != None: layout[layout_name].ratio = ratio
-        layout[layout_name].visible = visible
+    SHOP = shop_layout
+    INVENTORY = inventory_layout
+    MENU = menu_layout
+    CONFIRM = confirm_layout
 
     @staticmethod
-    def toggle_visible(layout_name: str,
+    def active_layout(new_layout=shop_layout):
+        layout.update(new_layout)
+
+    @staticmethod
+    def update_layout(target,
+                      panel,
+                      content="",
+                      title=None,
+                      ratio=None,
+                      border=box.MINIMAL):
+        target[panel].update(Panel(content,title=title,style=Color.PANEL_COLOR,box=border))
+        if ratio != None: target[panel].ratio = ratio
+        target[panel].visible = True
+
+    @staticmethod
+    def layout_visible(target,
+                       panel,
                        visible: bool=None):
-        if visible == None: layout[layout_name].visible = not layout[layout_name].visible
-        else: layout[layout_name].visible = visible
+        if visible == None: target[panel].visible = not target[panel].visible
+        else: target[panel].visible = visible
 
     @staticmethod
     def options_to_text(options,

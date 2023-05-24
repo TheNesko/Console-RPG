@@ -39,24 +39,24 @@ class Game:
             self.generate_shop_items()
 
     def confirm_screen(self, text:Text):
-        Display.update_layout("MainTop", text)
+        Display.active_layout(Display.CONFIRM)
+        Display.update_layout(Display.CONFIRM, "main", text)
         if Key.get_input() == Key.KEY_y:
             return True
         return False
 
     def start_screen(self):
         menus = [self.play_screen, self.settings_screen, self.credits_screen]
-        options = ["Play","Options","Credits","Exit"]
+        options = ["Play", "Options", "Credits", "Exit"]
         target = 0
         while True:
             game_name = Ascii.game_name()
-            OptionScreen = Display.options_to_text(options,target)
-            Display.update_layout("TopL",game_name,ratio=2)
-            Display.update_layout("TopR","",ratio=1)
-            Display.update_layout("BottomL",OptionScreen,ratio=6)
-            Display.update_layout("BottomR","",ratio=1)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=0)
+            option_screen = Display.options_to_text(options,target)
+
+            Display.active_layout(Display.MENU)
+            Display.update_layout(Display.MENU, "top", game_name, ratio=2)
+            Display.update_layout(Display.MENU, "bottom", option_screen, ratio=6)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
@@ -78,24 +78,22 @@ class Game:
         options.append("Back")
         target = 0
         while True:
-            OptionsText = Text("\n\n",justify="center")
+            option_screen = Text("\n\n",justify="center")
             
             for index,name in enumerate(options):
                 if index == len(options)-1 and target == index:
-                    OptionsText.append(f"{name}\n",style=f"u {Color.GO_BACK_COLOR}")
+                    option_screen.append(f"{name}\n",style=f"u {Color.GO_BACK_COLOR}")
                 elif index == target:
-                    OptionsText.append(f"<- - {name} [{self.settings[name]}] + ->\n", style=f"u {Color.HIGHLIGHT_COLOR}")
+                    option_screen.append(f"<- - {name} [{self.settings[name]}] + ->\n", style=f"u {Color.HIGHLIGHT_COLOR}")
                 elif index == len(options)-1:
-                    OptionsText.append(f"{name}\n", style=f"{Color.TEXT_COLOR}")
+                    option_screen.append(f"{name}\n", style=f"{Color.TEXT_COLOR}")
                 else:
-                    OptionsText.append(f"{name} [{self.settings[name]}]\n", style=f"{Color.TEXT_COLOR}")
+                    option_screen.append(f"{name} [{self.settings[name]}]\n", style=f"{Color.TEXT_COLOR}")
 
-            Display.update_layout("TopL",OptionsText,title="Press ESC to exit",ratio=1)
-            Display.update_layout("TopR","",ratio=1)
-            Display.update_layout("BottomL","",ratio=0)
-            Display.update_layout("BottomR","",ratio=1)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=0)
+            Display.active_layout(Display.MENU)
+            Display.update_layout(Display.MENU, "top", ratio=0)
+            Display.update_layout(Display.MENU, "bottom", option_screen, ratio=1)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
@@ -126,7 +124,7 @@ class Game:
             write_file.close()
 
     def credits_screen(self):
-        CreditsText = [
+        text = [
             "=====Developement=====",
             "Director: CursedIndel",
             "Design: CursedIndel",
@@ -145,20 +143,25 @@ class Game:
         ]
         target = 0
         while True:
-            InfoScreen = Ascii.Credits()
-            LeftScreen = Text("",no_wrap=False,justify="center")
-            for index in range(target,len(CreditsText)):
-                LeftScreen.append(f"{CreditsText[index]}\n",f"{Color.TEXT_COLOR}")
-            Display.update_layout("TopL",InfoScreen,ratio=2)
-            Display.update_layout("TopR","",ratio=1)
-            Display.update_layout("BottomL",LeftScreen,"press ESC to exit",ratio=6)
-            Display.update_layout("BottomR","",ratio=1)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=0)
+            ascii_text = Ascii.credits()
+            credits_text = Text(justify="center")
+            for index in range(target, len(text)):
+                credits_text.append(f"{text[index]}\n", Color.TEXT_COLOR)
+
+            Display.active_layout(Display.MENU)
+            Display.update_layout(Display.MENU, "top", ascii_text, ratio=2)
+            Display.update_layout(Display.MENU, "bottom", credits_text, ratio=6)
+
+            # Display.update_layout("TopL", ascii_text, ratio=2)
+            # Display.update_layout("TopR", ratio=1)
+            # Display.update_layout("BottomL", credits_text, "press ESC to exit", ratio=6)
+            # Display.update_layout("BottomR", ratio=1)
+            # Display.update_layout("Left", ratio=1)
+            # Display.update_layout("Right", ratio=0)
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
-                    if target > len(CreditsText)-1: target = len(CreditsText)-1
+                    if target > len(text)-1: target = len(text)-1
                 case Key.KEY_Aup | Key.KEY_w:
                     target -= 1
                     if target < 0: target = 0
@@ -172,18 +175,17 @@ class Game:
         while True:
             match target:
                 case 0:
-                    InfoScreen = Ascii.new_game()
+                    ascii_text = Ascii.new_game()
                 case 1 | 2:
-                    InfoScreen = Ascii.load()
+                    ascii_text = Ascii.load()
                 case 3:
-                    InfoScreen = Ascii.back()
-            LeftScreen = Display.options_to_text(options,target)
-            Display.update_layout("TopL",InfoScreen,ratio=2)
-            Display.update_layout("TopR","",ratio=1)
-            Display.update_layout("BottomL",LeftScreen,ratio=6)
-            Display.update_layout("BottomR","",ratio=1)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=0)
+                    ascii_text = Ascii.back()
+            option_screen = Display.options_to_text(options,target)
+
+            Display.active_layout(Display.MENU)
+            Display.update_layout(Display.MENU, "top", ascii_text, ratio=2)
+            Display.update_layout(Display.MENU, "bottom", option_screen, ratio=6)
+            
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
@@ -207,12 +209,12 @@ class Game:
         options.append("Back")
         target = 0
         while True:
-            InfoScreen = Display.options_to_text(options,target)
+            info_screen = Display.options_to_text(options,target)
             if target <= len(Character.character_list)-1:
                 CharactersDescriptions = Character.character_list[target].print_stats()
             else:
                 CharactersDescriptions = Ascii.back()
-            Display.update_layout("TopL",InfoScreen,ratio=2)
+            Display.update_layout("TopL",info_screen,ratio=2)
             Display.update_layout("TopR",CharactersDescriptions,ratio=2)
             Display.update_layout("BottomL","",ratio=0)
             Display.update_layout("BottomR","",ratio=0)
@@ -266,9 +268,9 @@ class Game:
         while True:
             menus = [self.TravelScreen,self.InventoryScreen,self.SaveScreen]
             options = ["Travel","Inventory","Save","Menu"]
-            InfoScreen = Display.options_to_text(options,target)
-            DescriptionScreen = self.player.PrintStats()
-            Display.update_layout("TopL",InfoScreen,f"Location: {self.game_map.get_tile(self.player.get_position()).name}",ratio=1)
+            info_screen = Display.options_to_text(options,target)
+            DescriptionScreen = self.player.print_stats()
+            Display.update_layout("TopL",info_screen,f"Location: {self.game_map.get_tile(self.player.get_position()).name}",ratio=1)
             Display.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
             Display.update_layout("BottomL","",ratio=1)
             Display.update_layout("BottomR","",ratio=0)
@@ -500,7 +502,7 @@ class Game:
             targetInventory = 0
             targetEquipement = 0
             while True:
-                InfoScreen = Text()
+                info_screen = Text()
                 InventoryScreen = Text()
                 EquipementScreen = Text()
                 Pages = [[]]
@@ -529,7 +531,7 @@ class Game:
                         if index == targetInventory and activeWindow == 0: 
                             InventoryScreen.append(f">{Item.name}\n" ,style=f"u {Color.HIGHLIGHT_COLOR}")
                             targetItem = Item
-                            InfoScreen.append(targetItem.PrintStats())
+                            info_screen.append(targetItem.print_stats())
                         else: InventoryScreen.append(f"{Item.name}\n" ,style=f"{Color.TEXT_COLOR}")
                 if targetInventory == ExitIndex and activeWindow == 0: InventoryScreen.append(">Back\n" ,style=f"u {Color.GO_BACK_COLOR}")
                 elif activeWindow == 0: InventoryScreen.append("Back\n" ,style=f"{Color.TEXT_COLOR}")
@@ -539,7 +541,7 @@ class Game:
                         if self.player.Equipment[slot] != None:
                             EquipementScreen.append(f"{slot}: {self.player.Equipment[slot].name}\n" ,style=f"u {Color.HIGHLIGHT_COLOR}")
                             targetItem = self.player.Equipment[slot]
-                            InfoScreen.append(targetItem.PrintStats())
+                            info_screen.append(targetItem.print_stats())
                         else: EquipementScreen.append(f"{slot}: {self.player.Equipment[slot]}\n" ,style=f"u {Color.HIGHLIGHT_COLOR}")
                         targetSlot = slot
                     else:
@@ -548,13 +550,13 @@ class Game:
                 if targetEquipement == ExitIndex and activeWindow == 1: EquipementScreen.append(">Back\n" ,style=f"u {Color.GO_BACK_COLOR}")
                 elif activeWindow == 1: EquipementScreen.append("Back\n" ,style=f"{Color.TEXT_COLOR}")
 
-                if targetInventory == ExitIndex and activeWindow == 0: InfoScreen = self.player.PrintStats()
-                if targetEquipement == ExitIndex and activeWindow == 1: InfoScreen = self.player.PrintStats()
+                if targetInventory == ExitIndex and activeWindow == 0: info_screen = self.player.print_stats()
+                if targetEquipement == ExitIndex and activeWindow == 1: info_screen = self.player.print_stats()
 
                 Display.update_layout("TopL",InventoryScreen,f"Inventory Page {currentPage+1}/{len(Pages)}",ratio=1)
                 Display.update_layout("TopR",EquipementScreen,"Equipment",ratio=2)
                 Display.update_layout("BottomL","",ratio=0)
-                Display.update_layout("BottomR",InfoScreen,"Description" if targetItem != None else None,ratio=6)
+                Display.update_layout("BottomR",info_screen,"Description" if targetItem != None else None,ratio=6)
                 Display.update_layout("Left",ratio=1)
                 Display.update_layout("Right",ratio=1)
                 match Key.get_input():
@@ -623,7 +625,7 @@ class Game:
         targetInventory = 0
         targetShop = 0
         while True:
-            InfoScreen = Text()
+            info_screen = Text()
             InventoryScreen = Text()
             ShopScreen = Text()
             InventoryPages = [[]]
@@ -661,7 +663,7 @@ class Game:
                     if index == targetInventory and activeWindow == 0: 
                         InventoryScreen.append(f">{Item.name}\n" ,style=f"u {Color.HIGHLIGHT_COLOR}")
                         targetItem = Item
-                        InfoScreen.append(targetItem.PrintStats())
+                        info_screen.append(targetItem.print_stats())
                     else: InventoryScreen.append(f"{Item.name}\n" ,style=f"{Color.TEXT_COLOR}")
             if targetInventory == ExitIndex and activeWindow == 0: InventoryScreen.append(">Back\n" ,style=f"u {Color.GO_BACK_COLOR}")
             elif activeWindow == 0: InventoryScreen.append("Back\n" ,style=f"{Color.TEXT_COLOR}")
@@ -671,19 +673,19 @@ class Game:
                     if index == targetShop and activeWindow == 1: 
                         ShopScreen.append(f">{Item.name}\n" ,style=f"u {Color.HIGHLIGHT_COLOR}")
                         targetItem = Item
-                        InfoScreen.append(targetItem.PrintStats())
+                        info_screen.append(targetItem.print_stats())
                     else: ShopScreen.append(f"{Item.name}\n" ,style=f"{Color.TEXT_COLOR}")
             if targetShop == ExitIndex and activeWindow == 1: ShopScreen.append(">Back\n" ,style=f"u {Color.GO_BACK_COLOR}")
             elif activeWindow == 1: ShopScreen.append("Back\n" ,style=f"{Color.TEXT_COLOR}")
 
             if activeWindow == 0 and targetInventory == ExitIndex:
-                InfoScreen.append(Ascii.Back())
-                InfoScreen.justify='center'
+                info_screen.append(Ascii.back())
+                info_screen.justify='center'
             if activeWindow == 1 and targetShop == ExitIndex:
-                InfoScreen.append(Ascii.Back())
-                InfoScreen.justify='center'
+                info_screen.append(Ascii.back())
+                info_screen.justify='center'
 
-            Display.update_layout("MainTop",InfoScreen,f"{self.player.Coins} Coins",ratio=3)
+            Display.update_layout("MainTop",info_screen,f"{self.player.Coins} Coins",ratio=3)
             Display.update_layout("TopL",ratio=0)
             Display.update_layout("TopR",ratio=0)
             Display.update_layout("BottomL",InventoryScreen,f"Inventory Page {currentInventoryPage+1}/{len(InventoryPages)}",ratio=6)
@@ -754,9 +756,9 @@ class Game:
         options = ["Rest (5 Coins)","Back"]
         target = 0
         while True:
-            InfoScreen = Display.options_to_text(options,target)
-            DescriptionScreen = self.player.PrintStats()
-            Display.update_layout("TopL",InfoScreen,f"{self.player.Coins} Coins",ratio=1)
+            info_screen = Display.options_to_text(options,target)
+            DescriptionScreen = self.player.print_stats()
+            Display.update_layout("TopL",info_screen,f"{self.player.Coins} Coins",ratio=1)
             Display.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
             Display.update_layout("BottomL","",ratio=0)
             Display.update_layout("BottomR","",ratio=0)
@@ -794,7 +796,7 @@ class Game:
         Display.update_layout("TopL","You are resting...",ratio=1)
         sleep(0.4)
         Display.update_layout("TopL",text,ratio=1)
-        Display.update_layout("TopR",self.player.PrintStats(),self.player.name,ratio=1)
+        Display.update_layout("TopR",self.player.print_stats(),self.player.name,ratio=1)
         self.Tick()
         Key.get_input()
 
