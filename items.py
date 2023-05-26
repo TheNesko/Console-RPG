@@ -2,10 +2,10 @@ from imports import *
 from characters import Character
 
 class ItemClass:
-    ItemList = []
+    item_list = []
 
     def __init__(self,name:str="404Error",**Stats):
-        ItemClass.ItemList.append(self)
+        ItemClass.item_list.append(self)
         self._Name = name
         self.id = hash(self._Name)
         self.Sellable = True

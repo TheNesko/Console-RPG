@@ -4,8 +4,8 @@ from display import layout, Display, Color, Ascii
 from characters import Player
 from characters import Character
 from game_map import Map
-from game_map import TileDataBase as tileDB
-from items import ItemDataBase as itemDB
+from game_map import MapTile
+from items import ItemClass
 from save import SAVE_FILE_PATH
 
 class GameState:
@@ -31,7 +31,7 @@ class Game:
             # self.disable_quickedit()
             self.start_screen()
 
-    def Tick(self):
+    def tick(self):
         self.player.tick += 1
         if self.player.tick >= self.player.tick_game_update:
             self.player.tick_game_update = self.player.tick + random.randint(7, 14)
@@ -152,12 +152,6 @@ class Game:
             Display.update_layout(Display.MENU, "top", ascii_text, ratio=2)
             Display.update_layout(Display.MENU, "bottom", credits_text, ratio=6)
 
-            # Display.update_layout("TopL", ascii_text, ratio=2)
-            # Display.update_layout("TopR", ratio=1)
-            # Display.update_layout("BottomL", credits_text, "press ESC to exit", ratio=6)
-            # Display.update_layout("BottomR", ratio=1)
-            # Display.update_layout("Left", ratio=1)
-            # Display.update_layout("Right", ratio=0)
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
@@ -169,8 +163,8 @@ class Game:
                     return
     
     def play_screen(self):
-        menus = [self.NewGameScreen,self.ContinueSave,self.LoadScreen]
-        options = ["New game","Continue","Load","Back"]
+        menus = [self.new_game_screen, self.ContinueSave, self.LoadScreen]
+        options = ["New game", "Continue", "Load", "Back"]
         target = 0
         while True:
             match target:
@@ -180,7 +174,7 @@ class Game:
                     ascii_text = Ascii.load()
                 case 3:
                     ascii_text = Ascii.back()
-            option_screen = Display.options_to_text(options,target)
+            option_screen = Display.options_to_text(options, target)
 
             Display.active_layout(Display.MENU)
             Display.update_layout(Display.MENU, "top", ascii_text, ratio=2)
@@ -189,184 +183,212 @@ class Game:
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
-                    if target > len(options)-1: target = 0
+                    if target > len(options)-1:
+                        target = 0
                 case Key.KEY_Aup | Key.KEY_w:
                     target -= 1
-                    if target < 0: target = len(options)-1
+                    if target < 0:
+                        target = len(options)-1
                 case Key.KEY_enter | Key.KEY_space:
-                    if target == len(options)-1: return
+                    if target == len(options)-1:
+                        return
                     else:
                         self.player = Player()
                         if menus[target]() != None:
-                            self.MainScreen()
+                            self.main_screen()
                 case Key.KEY_ESC:
                     return
     
-    def NewGameScreen(self):
+    def new_game_screen(self):
         options = []
         for x in Character.character_list:
             options.append(x.name)
         options.append("Back")
         target = 0
         while True:
-            info_screen = Display.options_to_text(options,target)
+            options_screen = Display.options_to_text(options, target)
             if target <= len(Character.character_list)-1:
-                CharactersDescriptions = Character.character_list[target].print_stats()
+                character_description = Character.character_list[target].print_stats()
             else:
-                CharactersDescriptions = Ascii.back()
-            Display.update_layout("TopL",info_screen,ratio=2)
-            Display.update_layout("TopR",CharactersDescriptions,ratio=2)
-            Display.update_layout("BottomL","",ratio=0)
-            Display.update_layout("BottomR","",ratio=0)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=2)
+                character_description = Ascii.back()
+            character_name = ""
+            if target < len(Character.character_list):
+                character_name = Character.character_list[target].name
+
+            Display.active_layout(Display.COLUMNS)
+            Display.update_layout(Display.COLUMNS, "left", options_screen, ratio=1)
+            Display.update_layout(Display.COLUMNS,
+                                  "right",
+                                  character_description,
+                                  character_name,
+                                  ratio=1)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
-                    if target > len(options)-1: target = 0
+                    if target > len(options)-1:
+                        target = 0
                 case Key.KEY_Aup | Key.KEY_w:
                     target -= 1
-                    if target < 0: target = len(options)-1
+                    if target < 0:
+                        target = len(options)-1
                 case Key.KEY_enter | Key.KEY_space:
                     if target == len(options)-1:
                         return
                     else:
-                        self.player.NewCharacter(Character.character_list[target])
-                        if self.NameCharacterScreen(): return
+                        self.player.new_character(Character.character_list[target])
+                        if self.name_character_screen():
+                            return
                         return True
                 case Key.KEY_ESC:
                     return
 
-    def NameCharacterScreen(self):
-        PlayerName = ""
+    def name_character_screen(self):
+        player_name = ""
         while True:
-            NamingScreen = Text(f"\nName your character\n",justify="center")
-            NamingScreen.append(f"{PlayerName}" if PlayerName != "" else f"'{self.player.name}'")
-            Display.update_layout("TopL",ratio=2)
-            Display.update_layout("TopR","",ratio=0)
-            Display.update_layout("BottomL",NamingScreen,f"You choose {self.player.stats['Class']}",ratio=6)
-            Display.update_layout("BottomR","",ratio=0)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=0)
+            name_screen = Text(f"\nName your character\n",justify="center")
+            name_screen.append(f"{player_name}" if player_name != "" else f"'{self.player.name}'")
+
+            Display.active_layout(Display.CONFIRM)
+            Display.update_layout(Display.CONFIRM, "main", name_screen, self.player.class_)
+
             userInput = msvcrt.getwch()
             if userInput == '\r':
-                if PlayerName != "":
-                    self.player.name = PlayerName
+                if player_name != "":
+                    self.player.name = player_name
                 break
             elif userInput == '\x08':
-                PlayerName = PlayerName[:-1]
+                player_name = player_name[:-1]
             elif userInput == '\t' or userInput == '\x00':
                 pass
             elif userInput == '\x1b':
                 return True
-            elif len(PlayerName) < 22:
-                PlayerName += str(userInput)
+            elif len(player_name) < 22:
+                player_name += str(userInput)
 
-    def MainScreen(self):
-        self.Tick()
+    def main_screen(self):
+        self.tick()
         target = 0
         while True:
-            menus = [self.TravelScreen,self.InventoryScreen,self.SaveScreen]
-            options = ["Travel","Inventory","Save","Menu"]
-            info_screen = Display.options_to_text(options,target)
-            DescriptionScreen = self.player.print_stats()
-            Display.update_layout("TopL",info_screen,f"Location: {self.game_map.get_tile(self.player.get_position()).name}",ratio=1)
-            Display.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
-            Display.update_layout("BottomL","",ratio=1)
-            Display.update_layout("BottomR","",ratio=0)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=1)
+            menus = [self.travel_screen, self.InventoryScreen, self.SaveScreen]
+            options = ["Travel", "Inventory", "Save", "Menu"]
+            options_screen = Display.options_to_text(options, target)
+            description_screen = self.player.print_stats()
+
+            Display.active_layout(Display.COLUMNS)
+            Display.update_layout(Display.COLUMNS,
+                                  "left",
+                                  options_screen,
+                                  f"Location: {self.game_map.get_tile(self.player.get_position()).name}",
+                                  ratio=1)
+            Display.update_layout(Display.COLUMNS,
+                                  "right",
+                                  description_screen,
+                                  self.player.name,
+                                  ratio=1)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
-                    if target > len(options)-1: target = 0
+                    if target > len(options)-1:
+                        target = 0
                 case Key.KEY_Aup | Key.KEY_w:
                     target -= 1
-                    if target < 0: target = len(options)-1
+                    if target < 0:
+                        target = len(options)-1
                 case Key.KEY_enter | Key.KEY_space:
-                    if target == len(options)-1: return
+                    if target == len(options)-1:
+                        return
                     else:
-                        if menus[target](): return True
+                        if menus[target]():
+                            return True
                 case Key.KEY_ESC:
                     return
 
-    def TravelScreen(self):
+    def travel_screen(self):
         while True:
-            tileInfo = self.game_map.get_tile(self.player.get_position()).DisplayTileInfo()
-            mapScreen = self.game_map.DisplayMap(self.player.get_position())
-            mapScreen.justify = "center"
-            mapLegend = Text()
-            for tile in tileDB.__dict__:
-                mapLegend.append(f"{tile.MapSymbol}",style=f"{tile.MapColor}")
-                mapLegend.append(f" - {tile.name}\n")
-            Display.update_layout("TopL",tileInfo,"Tile info",ratio=1)
-            Display.update_layout("TopR",mapLegend,"Legend",ratio=1)
-            Display.update_layout("BottomL","",ratio=0)
-            Display.update_layout("BottomR","",ratio=0)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=1)
-            Display.update_layout("Map",mapScreen,"Map",border=box.ASCII2)
+            player_position = self.player.get_position()
+            tile_content = self.game_map.get_tile(player_position).display_tile_info()
+            map_screen = self.game_map.display_map(player_position)
+            map_screen.justify = "center"
+            map_legend = Text()
+            for tile in MapTile.tile_list:
+                map_legend.append(tile.map_symbol, tile.symbol_color)
+                map_legend.append(f" - {tile.name}\n")
+            
+            Display.active_layout(Display.MAP)
+            Display.update_layout(Display.MAP, "top", tile_content, "Tile contents", ratio=2)
+            Display.update_layout(Display.MAP, "map", map_screen, "Map", ratio=6, border=box.ASCII2)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
-                    self.player.Location['y'] += 1
-                    if self.player.Location['y'] > self.game_map.Height-1:self.player.Location['y'] = self.game_map.Height-1
-                    else: self.Tick()
+                    self.player.y += 1
+                    if self.player.y > self.game_map.height-1:
+                        self.player.y = self.game_map.height-1
+                    else:
+                        self.tick()
                 case Key.KEY_Aup | Key.KEY_w:
-                    self.player.Location['y'] -= 1
-                    if self.player.Location['y'] < 0: self.player.Location['y'] = 0
-                    else: self.Tick()
+                    self.player.y -= 1
+                    if self.player.y < 0:
+                        self.player.y = 0
+                    else:
+                        self.tick()
                 case Key.KEY_Aright | Key.KEY_d:
-                    self.player.Location['x'] += 1
-                    if self.player.Location['x'] > self.game_map.Width-1: self.player.Location['x'] = self.game_map.Width-1
-                    else: self.Tick()
+                    self.player.x += 1
+                    if self.player.x > self.game_map.width-1:
+                        self.player.x = self.game_map.width-1
+                    else:
+                        self.tick()
                 case Key.KEY_Aleft | Key.KEY_a:
-                    self.player.Location['x'] -= 1
-                    if self.player.Location['x'] < 0: self.player.Location['x'] = 0
-                    else: self.Tick()
+                    self.player.x -= 1
+                    if self.player.x < 0:
+                        self.player.x = 0
+                    else:
+                        self.tick()
                 case Key.KEY_enter | Key.KEY_space:
-                    if self.ActivityScreen():
-                        Display.update_layout("Map",visible=False)
+                    if self.activity_screen():
                         return True
                 case Key.KEY_ESC | Key.KEY_tab:
                     break
-        Display.update_layout("Map",visible=False)
 
-    def ActivityScreen(self):
+    def activity_screen(self):
         map_tile = self.game_map.get_tile(self.player.get_position())
-        if map_tile.Content == {}: return
+        if map_tile.content == {}:
+            return
         target = 0
         while True:
             menus = []
             options = []
-            for name,value in map_tile.Content.items():
-                if type(value) == bool: continue
+            for name, value in map_tile.content.items():
+                if type(value) == bool:
+                    continue
                 menus.append(value)
                 options.append(name)
-            if menus == []: return
+            if menus == []:
+                return
             options.append("Back")
-            optionsText = Display.options_to_text(options,target)
-            Display.update_layout("TopL",optionsText,"Activities",ratio=1)
-            Display.update_layout("TopR",ratio=0)
-            Display.update_layout("BottomL","",ratio=0)
-            Display.update_layout("BottomR","",ratio=0)
-            Display.update_layout("Left",ratio=1)
-            Display.update_layout("Right",ratio=1)
+            options_screen = Display.options_to_text(options, target)
+
+            Display.active_layout(Display.MAP)
+            Display.update_layout(Display.MAP, "top", options_screen, "Activities", ratio=2)
+
             match Key.get_input():
                 case Key.KEY_Adown | Key.KEY_s:
                     target += 1
-                    if target > len(options)-1: target = 0
+                    if target > len(options)-1:
+                        target = 0
                 case Key.KEY_Aup | Key.KEY_w:
                     target -= 1
-                    if target < 0: target = len(options)-1
+                    if target < 0:
+                        target = len(options)-1
                 case Key.KEY_enter | Key.KEY_space:
-                    self.layoutToggleVisible("Map",False)
-                    if target == len(options)-1: break
+                    if target == len(options)-1:
+                        break
                     else:
-                        if menus[target](): return True
-                    self.layoutToggleVisible("Map",True)
+                        if menus[target]():
+                            return True
                 case Key.KEY_ESC:
                     break
-        Display.update_layout("Map",visible=False)
 
     def FightScreen(self):
         self.layoutToggleVisible("Map",True)
@@ -380,7 +402,7 @@ class Game:
             text = Text("\n\nThere are no enemies around",justify='center',style=Color.DANGER_COLOR)
             Display.update_layout("TopL",text,"Press any key to continue",ratio=1)
             Display.update_layout("Right",ratio=0)
-            self.Tick()
+            self.tick()
             Key.get_input()
             return
         target = 0
@@ -610,14 +632,14 @@ class Game:
                         return
 
     def generate_shop_items(self):
-        self.shopInventory = []
+        self.shop_inventory = []
         for x in range(50):
-            newItem = copy(itemDB.__dict__[random.randint(0,len(itemDB.__dict__)-1)])
-            self.shopInventory = newItem.AddToInventory(self.shopInventory)
+            newItem = copy(ItemClass.item_list[random.randint(0,len(ItemClass.item_list)-1)])
+            self.shop_inventory = newItem.AddToInventory(self.shop_inventory)
 
-    shopInventory = []
+    shop_inventory = []
     def ShopScreen(self):
-        shopItems = self.shopInventory
+        shopItems = self.shop_inventory
         activeWindow = 0 # 0-inventory 1-shop
         currentInventoryPage = 0
         currentShopPage = 0
@@ -757,9 +779,9 @@ class Game:
         target = 0
         while True:
             info_screen = Display.options_to_text(options,target)
-            DescriptionScreen = self.player.print_stats()
+            description_screen = self.player.print_stats()
             Display.update_layout("TopL",info_screen,f"{self.player.Coins} Coins",ratio=1)
-            Display.update_layout("TopR",DescriptionScreen,self.player.name,ratio=1)
+            Display.update_layout("TopR",description_screen,self.player.name,ratio=1)
             Display.update_layout("BottomL","",ratio=0)
             Display.update_layout("BottomR","",ratio=0)
             Display.update_layout("Left",ratio=1)
@@ -797,7 +819,7 @@ class Game:
         sleep(0.4)
         Display.update_layout("TopL",text,ratio=1)
         Display.update_layout("TopR",self.player.print_stats(),self.player.name,ratio=1)
-        self.Tick()
+        self.tick()
         Key.get_input()
 
     def LoadScreen(self):
@@ -810,7 +832,7 @@ class Game:
                 filename = os.fsdecode(file)
                 if filename.endswith(".json"): 
                     saves.append(filename.split(".json")[0])
-            if saves == []: return self.NewGameScreen()
+            if saves == []: return self.new_game_screen()
             SaveListText = Text(justify="right")
             SaveOptionText = Text()
 
@@ -897,7 +919,7 @@ class Game:
                 filename = os.fsdecode(file)
                 if filename.endswith(".json"): 
                     saves.append(filename.split(".json")[0])
-            if saves == []: return self.NewGameScreen()
+            if saves == []: return self.new_game_screen()
             SaveListText = Text()
 
             for index,saveName in enumerate(saves):

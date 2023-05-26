@@ -87,7 +87,7 @@ class Map:
                 if player_position[0] == x and player_position[1] == y:
                     text.append("@")
                     continue
-                text.append(f"{tile.map_symbol}", style=tile.symbol_color)
+                text.append(tile.map_symbol, tile.symbol_color)
             text.append("\n")
         return text
 

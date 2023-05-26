@@ -345,6 +345,7 @@ class EnemyDataBase:
 
 class Player(Combat):
     def __init__(self):
+        super().__init__()
         self.name = "Adventurer"
         self.class_ = None
         self.level = {
@@ -398,6 +399,22 @@ class Player(Combat):
             overflow = self.exp - self.level['NeedExp']
             self.level['NeedExp'] = round((self.level['level']-1)**3+100)
             self.exp = overflow
+
+    @property
+    def x(self):
+        return self.location['x']
+
+    @x.setter
+    def x(self, value):
+        self.location['x'] = value
+    
+    @property
+    def y(self):
+        return self.location['y']
+
+    @y.setter
+    def y(self, value):
+        self.location['y'] = value
 
     def get_position(self):
         return (self.location['x'],self.location['y'])
@@ -532,6 +549,7 @@ class Player(Combat):
     def new_character(self, data):
         self.class_ = data.name
         for name, value in data.stats.items():
+
             if name in self.stats:
                 if name[0:3] == "Max":
                     self.stats[name[3:len(name)]] = value

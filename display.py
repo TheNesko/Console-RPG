@@ -63,8 +63,20 @@ shop_layout["right"].split_column(
     Layout(name="right_bottom", ratio=6),
 )
 
+map_layout = Layout(name="main")
+map_layout.split_column(
+    Layout(name="top", ratio=2),
+    Layout(name="map", ratio=6),
+)
+
+
 confirm_layout = Layout(name="main")
 
+columns_layout = Layout(name="columns")
+columns_layout.split_row(
+    Layout(name="left", ratio=1),
+    Layout(name="right", ratio=1),
+)
 
 class Display:
     @staticmethod
@@ -109,7 +121,9 @@ class Display:
     SHOP = shop_layout
     INVENTORY = inventory_layout
     MENU = menu_layout
+    MAP = map_layout
     CONFIRM = confirm_layout
+    COLUMNS = columns_layout
 
     @staticmethod
     def active_layout(new_layout=shop_layout):
